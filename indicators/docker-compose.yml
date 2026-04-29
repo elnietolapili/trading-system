@@ -1,0 +1,48 @@
+version: "3.8"
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-trading}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_DB: ${DB_NAME:-trading}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/migrations:/docker-entrypoint-initdb.d
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  fetcher:
+    build: ./fetcher
+    restart: always
+    depends_on:
+      - db
+    env_file: .env
+
+  backend:
+    build: ./backend
+    restart: always
+    depends_on:
+      - db
+    env_file: .env
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  indicators:
+    build: ./indicators
+    restart: always
+    depends_on:
+      - db
+    env_file: .env
+
+  bot:
+    build: ./bot
+    restart: always
+    depends_on:
+      - db
+    env_file: .env
+
+volumes:
+  pgdata:
