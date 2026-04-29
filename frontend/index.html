@@ -417,7 +417,7 @@
     }
 
     async function loadData(symbol, tf, orders=[]) {
-        const data = await apiFetch(`/candles?symbol=${symbol}&timeframe=${tf}&limit=10000`);
+        const data = await apiFetch(`/candles?symbol=${symbol}&timeframe=${tf}&limit=1000000`);
         if (!data||!data.candles.length) return;
 
         const t = iso => Math.floor(new Date(iso).getTime()/1000);

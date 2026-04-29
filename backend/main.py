@@ -92,7 +92,7 @@ def get_candles(
     timeframe: str = Query(..., description="Ej: 1h, 4h, 1D"),
     start: Optional[str] = Query(None, description="Fecha inicio ISO, ej: 2025-01-01"),
     end: Optional[str] = Query(None, description="Fecha fin ISO, ej: 2025-12-31"),
-    limit: int = Query(500, description="Máximo de filas", ge=1, le=10000),
+    limit: int = Query(1000000, description="Máximo de filas", ge=1, le=1000000),
 ):
     """Devuelve velas OHLCV con filtros opcionales de fecha."""
     conn = get_db()
