@@ -109,11 +109,12 @@ def get_candles(
         query += " AND time <= %s"
         params.append(end)
 
-    query += " ORDER BY time ASC LIMIT %s"
+    query += " ORDER BY time DESC LIMIT %s"
     params.append(limit)
 
     cur.execute(query, params)
     rows = cur.fetchall()
+    rows.reverse()  # Volver a orden cronológico
 
     # Convertir timestamps a string ISO
     candles = []
