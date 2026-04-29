@@ -28,7 +28,7 @@ services:
       - db
     env_file: .env
     ports:
-      - "127.0.0.1:8000:8000"
+      - "0.0.0.0:8000:8000"
 
   indicators:
     build: ./indicators

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading System</title>
+    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+        }
+        .controls {
+            display: flex;
+            gap: 12px;
+            padding: 16px;
+            background: #16213e;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        select, button {
+            padding: 8px 16px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: #0f3460;
+            color: #e0e0e0;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        select:hover, button:hover { background: #1a4a7a; }
+        #chart { width: 100%; height: calc(100vh - 60px); }
+        .status {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            padding: 6px 12px;
+            background: #16213e;
+            border-radius: 4px;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <select id="symbol">
+            <option value="ETHUSDT">ETH/USDT</option>
+            <option value="BTCUSDT">BTC/USDT</option>
+            <option value="BNBUSDT">BNB/USDT</option>
+        </select>
+        <select id="timeframe">
+            <option value="1h">1H</option>
+            <option value="2h">2H</option>
+            <option value="4h">4H</option>
+            <option value="8h">8H</option>
+            <option value="12h">12H</option>
+            <option value="1D">1D</option>
+            <option value="1W">1W</option>
+        </select>
+        <button onclick="loadCandles()">Cargar</button>
+        <button onclick="toggleEMA()">EMA on/off</button>
+        <button onclick="toggleSAR()">SAR on/off</button>
+    </div>
+    <div id="chart"></div>
+    <div class="status" id="status">Listo</div>
+
+    <script>
+        // ── Configuración ──
+        // Cambia esta URL por la IP de tu Hetzner
+        const API_URL = 'http://178.104.196.80:8000';
+
+        // ── Gráfica ──
+        const chartContainer = document.getElementById('chart');
+        const chart = LightweightCharts.createChart(chartContainer, {
+            layout: {
+                background: { color: '#1a1a2e' },
+                textColor: '#e0e0e0',
+            },
+            grid: {
+                vertLines: { color: '#2a2a4a' },
+                horzLines: { color: '#2a2a4a' },
+            },
+            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+            timeScale: { timeVisible: true, secondsVisible: false },
+        });
+
+        const candleSeries = chart.addCandlestickSeries({
+            upColor: '#26a69a',
+            downColor: '#ef5350',
+            borderDownColor: '#ef5350',
+            borderUpColor: '#26a69a',
+            wickDownColor: '#ef5350',
+            wickUpColor: '#26a69a',
+        });
+
+        // Series de indicadores (ocultas por defecto)
+        let emaVisible = false;
+        let sarVisible = false;
+
+        const ema9Series = chart.addLineSeries({ color: '#ffeb3b', lineWidth: 1, title: 'EMA 9' });
+        const ema20Series = chart.addLineSeries({ color: '#ff9800', lineWidth: 1, title: 'EMA 20' });
+        const ema50Series = chart.addLineSeries({ color: '#2196f3', lineWidth: 1, title: 'EMA 50' });
+        const ema200Series = chart.addLineSeries({ color: '#e91e63', lineWidth: 1, title: 'EMA 200' });
+
+        const sarSeries = chart.addLineSeries({
+            color: '#ba68c8',
+            lineWidth: 0,
+            pointMarkersVisible: true,
+            pointMarkersRadius: 2,
+            title: 'SAR',
+        });
+
+        // Ocultar al inicio
+        ema9Series.applyOptions({ visible: false });
+        ema20Series.applyOptions({ visible: false });
+        ema50Series.applyOptions({ visible: false });
+        ema200Series.applyOptions({ visible: false });
+        sarSeries.applyOptions({ visible: false });
+
+        // ── Funciones ──
+
+        function setStatus(text) {
+            document.getElementById('status').textContent = text;
+        }
+
+        function toChartTime(isoString) {
+            // Lightweight Charts espera timestamp en segundos UTC
+            return Math.floor(new Date(isoString).getTime() / 1000);
+        }
+
+        async function loadCandles() {
+            const symbol = document.getElementById('symbol').value;
+            const timeframe = document.getElementById('timeframe').value;
+
+            setStatus('Cargando...');
+
+            try {
+                const url = `${API_URL}/candles?symbol=${symbol}&timeframe=${timeframe}&limit=10000`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (!data.candles || data.candles.length === 0) {
+                    setStatus('Sin datos');
+                    return;
+                }
+
+                // Velas
+                const candles = data.candles.map(c => ({
+                    time: toChartTime(c.time),
+                    open: c.open,
+                    high: c.high,
+                    low: c.low,
+                    close: c.close,
+                }));
+                candleSeries.setData(candles);
+
+                // EMAs
+                const makeEmaData = (field) => data.candles
+                    .filter(c => c[field] !== null)
+                    .map(c => ({ time: toChartTime(c.time), value: c[field] }));
+
+                ema9Series.setData(makeEmaData('ema_9'));
+                ema20Series.setData(makeEmaData('ema_20'));
+                ema50Series.setData(makeEmaData('ema_50'));
+                ema200Series.setData(makeEmaData('ema_200'));
+
+                // SAR
+                const sarData = data.candles
+                    .filter(c => c.sar_015 !== null)
+                    .map(c => ({ time: toChartTime(c.time), value: c.sar_015 }));
+                sarSeries.setData(sarData);
+
+                chart.timeScale().fitContent();
+                setStatus(`${data.count} velas cargadas`);
+
+            } catch (err) {
+                setStatus('Error: ' + err.message);
+            }
+        }
+
+        function toggleEMA() {
+            emaVisible = !emaVisible;
+            ema9Series.applyOptions({ visible: emaVisible });
+            ema20Series.applyOptions({ visible: emaVisible });
+            ema50Series.applyOptions({ visible: emaVisible });
+            ema200Series.applyOptions({ visible: emaVisible });
+        }
+
+        function toggleSAR() {
+            sarVisible = !sarVisible;
+            sarSeries.applyOptions({ visible: sarVisible });
+        }
+
+        // Responsive
+        window.addEventListener('resize', () => {
+            chart.applyOptions({ width: chartContainer.clientWidth, height: chartContainer.clientHeight });
+        });
+
+        // Cargar al inicio
+        loadCandles();
+    </script>
+</body>
+</html>
