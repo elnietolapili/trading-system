@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading System</title>
+    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #111827;
+            --bg-card: #151d2e;
+            --bg-hover: #1c2740;
+            --border: #1e2a3f;
+            --text-primary: #e2e8f0;
+            --text-secondary: #8892a5;
+            --text-muted: #4a5568;
+            --green: #10b981;
+            --green-dim: rgba(16, 185, 129, 0.15);
+            --red: #ef4444;
+            --red-dim: rgba(239, 68, 68, 0.15);
+            --blue: #3b82f6;
+            --blue-dim: rgba(59, 130, 246, 0.15);
+            --amber: #f59e0b;
+            --purple: #a78bfa;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Sora', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-secondary);
+        }
+        .header-logo {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 18px;
+            letter-spacing: -0.5px;
+        }
+        .header-logo span { color: var(--green); }
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+        .tabs {
+            display: flex;
+            padding: 0 24px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+        .tab {
+            padding: 12px 20px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab:hover { color: var(--text-secondary); }
+        .tab.active { color: var(--text-primary); border-bottom-color: var(--green); }
+
+        .content { padding: 20px 24px; }
+
+        .bot-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .bot-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+        .bot-info { display: flex; align-items: center; gap: 16px; }
+        .bot-icon {
+            width: 44px; height: 44px;
+            border-radius: 10px;
+            background: var(--green-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        .bot-icon.inactive { background: var(--red-dim); }
+        .bot-name { font-weight: 600; font-size: 16px; margin-bottom: 2px; }
+        .bot-strategy {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .bot-badge {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .bot-badge.active { background: var(--green-dim); color: var(--green); }
+        .bot-badge.inactive { background: var(--red-dim); color: var(--red); }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1px;
+            background: var(--border);
+        }
+        .stat-item { padding: 16px 20px; background: var(--bg-card); }
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 6px;
+        }
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .stat-value.positive { color: var(--green); }
+        .stat-value.negative { color: var(--red); }
+        .stat-value.neutral { color: var(--text-primary); }
+        .stat-sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+        .chart-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+        .tf-btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .tf-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .tf-btn.active { background: var(--blue-dim); border-color: var(--blue); color: var(--blue); }
+        .chart-divider { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+        .indicator-btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .indicator-btn:hover { color: var(--text-secondary); }
+        .indicator-btn.active { border-color: var(--purple); color: var(--purple); background: rgba(167,139,250,0.1); }
+
+        .orders-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .orders-title { font-weight: 600; font-size: 14px; }
+        .orders-count { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-secondary); }
+        .orders-table { width: 100%; border-collapse: collapse; }
+        .orders-table th {
+            padding: 10px 16px;
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-secondary);
+        }
+        .orders-table td {
+            padding: 12px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border);
+        }
+        .orders-table tr:hover { background: var(--bg-hover); }
+        .orders-table tr:last-child td { border-bottom: none; }
+        .side-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .side-badge.buy { background: var(--green-dim); color: var(--green); }
+        .side-badge.sell { background: var(--red-dim); color: var(--red); }
+        .pnl-positive { color: var(--green); }
+        .pnl-negative { color: var(--red); }
+
+        .empty-state { padding: 60px 20px; text-align: center; }
+        .empty-state-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
+        .empty-state-text { color: var(--text-muted); font-size: 14px; max-width: 400px; margin: 0 auto; line-height: 1.6; }
+
+        .loading { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 40px; color: var(--text-muted); font-size: 13px; }
+        .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-logo">trading<span>.</span>system</div>
+        <div class="header-status">
+            <div class="status-dot"></div>
+            <span id="system-status">Conectado</span>
+        </div>
+    </div>
+    <div class="tabs">
+        <div class="tab active" data-tab="bots">Bots activos</div>
+        <div class="tab" data-tab="analysis">Análisis</div>
+    </div>
+    <div class="content" id="content">
+        <div class="loading"><div class="spinner"></div> Cargando...</div>
+    </div>
+
+<script>
+    const API_URL = 'http://178.104.196.80:8000';
+    let chart = null, candleSeries = null, emaSeries = {}, sarSeries = null;
+
+    // ── Tabs ──
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            renderContent(tab.dataset.tab);
+        });
+    });
+
+    async function apiFetch(path) {
+        try {
+            const res = await fetch(`${API_URL}${path}`);
+            return await res.json();
+        } catch (err) {
+            document.getElementById('system-status').textContent = 'Sin conexión';
+            return null;
+        }
+    }
+
+    // ── Render ──
+    async function renderContent(tab = 'bots') {
+        const content = document.getElementById('content');
+
+        if (tab === 'bots') {
+            content.innerHTML = '<div class="loading"><div class="spinner"></div> Cargando bots...</div>';
+            const data = await apiFetch('/bots');
+            if (!data || data.bots.length === 0) {
+                content.innerHTML = `<div class="bot-card"><div class="empty-state">
+                    <div class="empty-state-icon">⚡</div>
+                    <div class="empty-state-text">No hay bots activos.<br>Cuando migres tu bot al sistema, aparecerá aquí con su gráfica, órdenes y estadísticas.</div>
+                </div></div>`;
+                return;
+            }
+            let html = '';
+            for (const bot of data.bots) {
+                const stats = await apiFetch(`/bots/${bot.name}/stats`);
+                const orders = await apiFetch(`/bots/${bot.name}/orders`);
+                html += buildBotCard(bot, stats?.stats, orders?.orders || []);
+            }
+            content.innerHTML = html;
+            if (data.bots.length > 0) initBotChart(data.bots[0]);
+
+        } else {
+            content.innerHTML = buildAnalysis();
+            initAnalysisChart();
+        }
+    }
+
+    function buildBotCard(bot, stats, orders) {
+        const s = stats || {};
+        const pnl = parseFloat(s.total_pnl||0);
+        const ret = parseFloat(s.return_pct||0);
+        const wr = parseFloat(s.win_rate||0);
+        const wallet = parseFloat(s.wallet||0);
+        const best = parseFloat(s.best_trade||0);
+        const worst = parseFloat(s.worst_trade||0);
+        const sells = s.total_sells||0;
+        const date = bot.started_at ? new Date(bot.started_at).toLocaleDateString('es-ES') : '-';
+        const active = bot.active;
+
+        return `<div class="bot-card" data-bot="${bot.name}" data-symbol="${bot.symbol}">
+            <div class="bot-header">
+                <div class="bot-info">
+                    <div class="bot-icon ${active?'':'inactive'}">${active?'▶':'⏸'}</div>
+                    <div>
+                        <div class="bot-name">${bot.name}</div>
+                        <div class="bot-strategy">${bot.strategy} · ${bot.symbol} · desde ${date}</div>
+                    </div>
+                </div>
+                <div class="bot-badge ${active?'active':'inactive'}">${active?'Activo':'Pausado'}</div>
+            </div>
+            <div class="stats-row">
+                <div class="stat-item"><div class="stat-label">PnL Total</div><div class="stat-value ${pnl>=0?'positive':'negative'}">${pnl>=0?'+':''}${pnl.toFixed(2)} $</div></div>
+                <div class="stat-item"><div class="stat-label">Rentabilidad</div><div class="stat-value ${ret>=0?'positive':'negative'}">${ret>=0?'+':''}${ret.toFixed(2)}%</div></div>
+                <div class="stat-item"><div class="stat-label">Win Rate</div><div class="stat-value neutral">${wr.toFixed(1)}%</div><div class="stat-sub">${sells} trades cerrados</div></div>
+                <div class="stat-item"><div class="stat-label">Cartera</div><div class="stat-value neutral">${wallet.toFixed(2)} $</div></div>
+                <div class="stat-item"><div class="stat-label">Mejor trade</div><div class="stat-value positive">${best>0?'+':''}${best.toFixed(2)} $</div></div>
+                <div class="stat-item"><div class="stat-label">Peor trade</div><div class="stat-value negative">${worst.toFixed(2)} $</div></div>
+            </div>
+            <div class="chart-controls" id="cc-${bot.name}">
+                ${['1h','2h','4h','8h','12h','1D','1W'].map(tf=>`<button class="tf-btn ${tf==='1h'?'active':''}" onclick="changeBotTf('${bot.name}','${bot.symbol}','${tf}',this)">${tf}</button>`).join('')}
+                <div class="chart-divider"></div>
+                <button class="indicator-btn" onclick="toggleInd('ema',this)">EMA</button>
+                <button class="indicator-btn" onclick="toggleInd('sar',this)">SAR</button>
+            </div>
+            <div id="chart-${bot.name}" style="width:100%;height:500px;"></div>
+            ${buildOrdersTable(orders)}
+        </div>`;
+    }
+
+    function buildOrdersTable(orders) {
+        const header = `<div style="border-top:1px solid var(--border)"><div class="orders-header">
+            <div class="orders-title">Historial de órdenes</div>
+            <div class="orders-count">${orders.length} órdenes</div></div>`;
+
+        if (!orders.length) return header + `<div style="padding:30px;text-align:center;color:var(--text-muted);font-size:13px">Sin órdenes registradas</div></div>`;
+
+        const rows = orders.map(o => {
+            const d = new Date(o.created_at).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+            const pnl = o.side==='sell'&&o.pnl!=null ? `<span class="${o.pnl>=0?'pnl-positive':'pnl-negative'}">${o.pnl>=0?'+':''}${parseFloat(o.pnl).toFixed(2)}</span>` : '-';
+            return `<tr><td>${d}</td><td><span class="side-badge ${o.side}">${o.side.toUpperCase()}</span></td><td>${parseFloat(o.price).toFixed(2)}</td><td>${parseFloat(o.quantity).toFixed(4)}</td><td>${parseFloat(o.cost).toFixed(2)}</td><td>${pnl}</td><td style="color:var(--text-muted)">${o.status}</td></tr>`;
+        }).join('');
+
+        return header + `<div style="overflow-x:auto"><table class="orders-table"><thead><tr>
+            <th>Fecha</th><th>Lado</th><th>Precio</th><th>Cantidad</th><th>Coste</th><th>PnL</th><th>Estado</th>
+        </tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    }
+
+    function buildAnalysis() {
+        return `<div class="bot-card">
+            <div class="chart-controls" id="analysis-cc">
+                <select id="a-symbol" style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px;font-family:'JetBrains Mono',monospace">
+                    <option value="ETHUSDT">ETH/USDT</option>
+                    <option value="BTCUSDT">BTC/USDT</option>
+                    <option value="BNBUSDT">BNB/USDT</option>
+                </select>
+                ${['1h','2h','4h','8h','12h','1D','1W'].map(tf=>`<button class="tf-btn ${tf==='1h'?'active':''}" onclick="changeAnalysisTf('${tf}',this)">${tf}</button>`).join('')}
+                <div class="chart-divider"></div>
+                <button class="indicator-btn" onclick="toggleInd('ema',this)">EMA</button>
+                <button class="indicator-btn" onclick="toggleInd('sar',this)">SAR</button>
+            </div>
+            <div id="analysis-chart" style="width:100%;height:600px;"></div>
+        </div>`;
+    }
+
+    // ── Chart ──
+    function makeChart(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (chart) { chart.remove(); chart = null; }
+
+        chart = LightweightCharts.createChart(el, {
+            layout: { background:{color:'#151d2e'}, textColor:'#8892a5', fontFamily:"'JetBrains Mono',monospace" },
+            grid: { vertLines:{color:'#1e2a3f'}, horzLines:{color:'#1e2a3f'} },
+            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+            timeScale: { timeVisible:true, secondsVisible:false },
+            rightPriceScale: { borderColor:'#1e2a3f' },
+        });
+
+        candleSeries = chart.addCandlestickSeries({
+            upColor:'#10b981', downColor:'#ef4444',
+            borderDownColor:'#ef4444', borderUpColor:'#10b981',
+            wickDownColor:'#ef4444', wickUpColor:'#10b981',
+        });
+
+        emaSeries = {
+            ema_9: chart.addLineSeries({color:'#fbbf24',lineWidth:1,title:'EMA 9',visible:false}),
+            ema_20: chart.addLineSeries({color:'#f97316',lineWidth:1,title:'EMA 20',visible:false}),
+            ema_50: chart.addLineSeries({color:'#3b82f6',lineWidth:1,title:'EMA 50',visible:false}),
+            ema_200: chart.addLineSeries({color:'#ec4899',lineWidth:1,title:'EMA 200',visible:false}),
+        };
+
+        sarSeries = chart.addLineSeries({
+            color:'#a78bfa', lineWidth:0,
+            pointMarkersVisible:true, pointMarkersRadius:2,
+            title:'SAR', visible:false,
+        });
+    }
+
+    async function loadData(symbol, tf, orders=[]) {
+        const data = await apiFetch(`/candles?symbol=${symbol}&timeframe=${tf}&limit=1000000`);
+        if (!data||!data.candles.length) return;
+
+        const t = iso => Math.floor(new Date(iso).getTime()/1000);
+
+        candleSeries.setData(data.candles.map(c=>({time:t(c.time),open:c.open,high:c.high,low:c.low,close:c.close})));
+
+        ['ema_9','ema_20','ema_50','ema_200'].forEach(k => {
+            emaSeries[k].setData(data.candles.filter(c=>c[k]!=null).map(c=>({time:t(c.time),value:c[k]})));
+        });
+
+        sarSeries.setData(data.candles.filter(c=>c.sar_015!=null).map(c=>({time:t(c.time),value:c.sar_015})));
+
+        if (orders.length) {
+            const markers = orders.filter(o=>o.price&&o.created_at).map(o=>({
+                time:t(o.created_at),
+                position:o.side==='buy'?'belowBar':'aboveBar',
+                color:o.side==='buy'?'#10b981':'#ef4444',
+                shape:o.side==='buy'?'arrowUp':'arrowDown',
+                text:`${o.side.toUpperCase()} ${parseFloat(o.price).toFixed(2)}`,
+            })).sort((a,b)=>a.time-b.time);
+            candleSeries.setMarkers(markers);
+        }
+
+        chart.timeScale().fitContent();
+    }
+
+    async function initBotChart(bot) {
+        makeChart(`chart-${bot.name}`);
+        const od = await apiFetch(`/bots/${bot.name}/orders`);
+        await loadData(bot.symbol, '1h', od?.orders||[]);
+    }
+
+    async function initAnalysisChart() {
+        makeChart('analysis-chart');
+        await loadData('ETHUSDT','1h');
+        document.getElementById('a-symbol').addEventListener('change', async e => {
+            const tf = document.querySelector('#analysis-cc .tf-btn.active')?.textContent||'1h';
+            await loadData(e.target.value, tf);
+        });
+    }
+
+    async function changeBotTf(name, symbol, tf, btn) {
+        btn.closest('.chart-controls').querySelectorAll('.tf-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        makeChart(`chart-${name}`);
+        const od = await apiFetch(`/bots/${name}/orders`);
+        await loadData(symbol, tf, od?.orders||[]);
+    }
+
+    async function changeAnalysisTf(tf, btn) {
+        btn.closest('.chart-controls').querySelectorAll('.tf-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        makeChart('analysis-chart');
+        await loadData(document.getElementById('a-symbol').value, tf);
+    }
+
+    function toggleInd(type, btn) {
+        btn.classList.toggle('active');
+        const on = btn.classList.contains('active');
+        if (type==='ema') Object.values(emaSeries).forEach(s=>s.applyOptions({visible:on}));
+        else sarSeries.applyOptions({visible:on});
+    }
+
+    window.addEventListener('resize',()=>{ if(chart) chart.applyOptions({width:chart.chartElement().parentElement.clientWidth}); });
+
+    renderContent();
+</script>
+</body>
+</html>
