@@ -224,3 +224,236 @@ def get_bot_stats(bot_name: str):
     cur.close()
     conn.close()
     return {"bot_name": bot_name, "stats": stats}
+
+
+# ── Endpoints de estrategias ───────────────────────────────────
+
+from pydantic import BaseModel
+from typing import List
+import json
+from strategies.engine import run_backtest
+
+
+class RuleModel(BaseModel):
+    indicator: str
+    operator: str
+    value: str | float | int
+
+
+class StrategyCreate(BaseModel):
+    name: str
+    symbol: str
+    timeframe: str
+    entry_rules: List[RuleModel]
+    exit_rules: List[RuleModel]
+    stop_loss_pct: Optional[float] = None
+    take_profit_pct: Optional[float] = None
+    position_size: float = 100
+
+
+class StrategyUpdate(BaseModel):
+    entry_rules: Optional[List[RuleModel]] = None
+    exit_rules: Optional[List[RuleModel]] = None
+    stop_loss_pct: Optional[float] = None
+    take_profit_pct: Optional[float] = None
+    position_size: Optional[float] = None
+
+
+@app.get("/strategies")
+def list_strategies():
+    """Lista todas las estrategias guardadas."""
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT id, name, symbol, timeframe, entry_rules, exit_rules, stop_loss_pct, take_profit_pct, position_size, active, created_at, updated_at FROM strategies ORDER BY updated_at DESC")
+    rows = cur.fetchall()
+    result = []
+    for r in rows:
+        s = dict(r)
+        s["created_at"] = s["created_at"].isoformat()
+        s["updated_at"] = s["updated_at"].isoformat()
+        result.append(s)
+    cur.close()
+    conn.close()
+    return {"strategies": result}
+
+
+@app.post("/strategies")
+def create_strategy(s: StrategyCreate):
+    """Crea una nueva estrategia."""
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO strategies (name, symbol, timeframe, entry_rules, exit_rules,
+                                    stop_loss_pct, take_profit_pct, position_size)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            s.name, s.symbol, s.timeframe,
+            json.dumps([r.dict() for r in s.entry_rules]),
+            json.dumps([r.dict() for r in s.exit_rules]),
+            s.stop_loss_pct, s.take_profit_pct, s.position_size,
+        ))
+        conn.commit()
+        strategy_id = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+        return {"id": strategy_id, "name": s.name, "status": "created"}
+    except psycopg2.errors.UniqueViolation:
+        conn.rollback()
+        cur.close()
+        conn.close()
+        return {"error": "Ya existe una estrategia con ese nombre"}
+
+
+@app.put("/strategies/{strategy_id}")
+def update_strategy(strategy_id: int, s: StrategyUpdate):
+    """Actualiza una estrategia existente."""
+    conn = get_db()
+    cur = conn.cursor()
+
+    updates = []
+    params = []
+
+    if s.entry_rules is not None:
+        updates.append("entry_rules = %s")
+        params.append(json.dumps([r.dict() for r in s.entry_rules]))
+    if s.exit_rules is not None:
+        updates.append("exit_rules = %s")
+        params.append(json.dumps([r.dict() for r in s.exit_rules]))
+    if s.stop_loss_pct is not None:
+        updates.append("stop_loss_pct = %s")
+        params.append(s.stop_loss_pct)
+    if s.take_profit_pct is not None:
+        updates.append("take_profit_pct = %s")
+        params.append(s.take_profit_pct)
+    if s.position_size is not None:
+        updates.append("position_size = %s")
+        params.append(s.position_size)
+
+    updates.append("updated_at = NOW()")
+    params.append(strategy_id)
+
+    cur.execute(f"UPDATE strategies SET {', '.join(updates)} WHERE id = %s", params)
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {"id": strategy_id, "status": "updated"}
+
+
+@app.delete("/strategies/{strategy_id}")
+def delete_strategy(strategy_id: int):
+    """Elimina una estrategia."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM strategies WHERE id = %s", (strategy_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {"id": strategy_id, "status": "deleted"}
+
+
+@app.post("/strategies/{strategy_id}/backtest")
+def run_strategy_backtest(
+    strategy_id: int,
+    start: Optional[str] = Query(None),
+    end: Optional[str] = Query(None),
+):
+    """Ejecuta backtest de una estrategia y guarda resultados."""
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    # Obtener estrategia
+    cur.execute("SELECT * FROM strategies WHERE id = %s", (strategy_id,))
+    strategy = cur.fetchone()
+    if not strategy:
+        cur.close()
+        conn.close()
+        return {"error": "Estrategia no encontrada"}
+
+    # Obtener velas
+    query = "SELECT * FROM ohlcv WHERE symbol = %s AND timeframe = %s"
+    params = [strategy["symbol"], strategy["timeframe"]]
+
+    if start:
+        query += " AND time >= %s"
+        params.append(start)
+    if end:
+        query += " AND time <= %s"
+        params.append(end)
+
+    query += " ORDER BY time ASC"
+    cur.execute(query, params)
+    candles = [dict(r) for r in cur.fetchall()]
+
+    # Convertir timestamps a string para el motor
+    for c in candles:
+        c["time"] = c["time"].isoformat()
+
+    if len(candles) < 10:
+        cur.close()
+        conn.close()
+        return {"error": "Datos insuficientes para backtest"}
+
+    # Ejecutar backtest
+    result = run_backtest(
+        candles=candles,
+        entry_rules=strategy["entry_rules"],
+        exit_rules=strategy["exit_rules"],
+        stop_loss_pct=strategy["stop_loss_pct"],
+        take_profit_pct=strategy["take_profit_pct"],
+        position_size=strategy["position_size"],
+    )
+
+    # Guardar resultados en la DB
+    cur2 = conn.cursor()
+    cur2.execute("""
+        UPDATE strategies SET last_backtest = %s, backtest_at = NOW(), updated_at = NOW()
+        WHERE id = %s
+    """, (json.dumps(result), strategy_id))
+    conn.commit()
+    cur2.close()
+
+    cur.close()
+    conn.close()
+
+    return {
+        "strategy_id": strategy_id,
+        "strategy_name": strategy["name"],
+        "symbol": strategy["symbol"],
+        "timeframe": strategy["timeframe"],
+        "candles_used": len(candles),
+        "result": result,
+    }
+
+
+@app.get("/strategies/operators")
+def get_operators():
+    """Devuelve los operadores y indicadores disponibles para construir reglas."""
+    return {
+        "operators": [
+            {"id": "crosses_above", "label": "Cruza por encima de"},
+            {"id": "crosses_below", "label": "Cruza por debajo de"},
+            {"id": "greater_than", "label": "Mayor que"},
+            {"id": "less_than", "label": "Menor que"},
+            {"id": "sar_below_price", "label": "SAR debajo del precio"},
+            {"id": "sar_above_price", "label": "SAR encima del precio"},
+        ],
+        "indicators": [
+            {"id": "close", "label": "Precio cierre"},
+            {"id": "open", "label": "Precio apertura"},
+            {"id": "high", "label": "Precio máximo"},
+            {"id": "low", "label": "Precio mínimo"},
+            {"id": "ema_9", "label": "EMA 9"},
+            {"id": "ema_20", "label": "EMA 20"},
+            {"id": "ema_50", "label": "EMA 50"},
+            {"id": "ema_100", "label": "EMA 100"},
+            {"id": "ema_200", "label": "EMA 200"},
+            {"id": "sar_015", "label": "SAR 0.015"},
+            {"id": "sar_020", "label": "SAR 0.020"},
+            {"id": "rsi_14", "label": "RSI 14"},
+            {"id": "rsi_7", "label": "RSI 7"},
+            {"id": "rsi_ma_14", "label": "RSI MA 14"},
+        ],
+    }
+
