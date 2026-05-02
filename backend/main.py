@@ -249,6 +249,7 @@ class StrategyCreate(BaseModel):
     stop_loss_pct: Optional[float] = None
     take_profit_pct: Optional[float] = None
     position_size: float = 100
+    collection_id: Optional[int] = None
 
 
 class StrategyUpdate(BaseModel):
@@ -285,14 +286,14 @@ def create_strategy(s: StrategyCreate):
     try:
         cur.execute("""
             INSERT INTO strategies (name, symbol, timeframe, entry_rules, exit_rules,
-                                    stop_loss_pct, take_profit_pct, position_size)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                                    stop_loss_pct, take_profit_pct, position_size, collection_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
             s.name, s.symbol, s.timeframe,
             json.dumps([r.dict() for r in s.entry_rules]),
             json.dumps([r.dict() for r in s.exit_rules]),
-            s.stop_loss_pct, s.take_profit_pct, s.position_size,
+            s.stop_loss_pct, s.take_profit_pct, s.position_size, s.collection_id,
         ))
         conn.commit()
         strategy_id = cur.fetchone()[0]
@@ -457,3 +458,90 @@ def get_operators():
         ],
     }
 
+
+# ── Endpoints de colecciones ───────────────────────────────────
+
+class CollectionCreate(BaseModel):
+    name: str
+    parent_id: Optional[int] = None
+
+
+class CollectionUpdate(BaseModel):
+    name: Optional[str] = None
+    parent_id: Optional[int] = None
+    sort_order: Optional[int] = None
+
+
+@app.get("/collections")
+def list_collections():
+    """Lista todas las colecciones con sus estrategias."""
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    cur.execute("SELECT * FROM collections ORDER BY sort_order, name")
+    collections = [dict(r) for r in cur.fetchall()]
+    for c in collections:
+        c["created_at"] = c["created_at"].isoformat()
+
+    cur.execute("""
+        SELECT id, name, symbol, timeframe, entry_rules, exit_rules,
+               stop_loss_pct, take_profit_pct, position_size, collection_id,
+               active, created_at, updated_at, backtest_at
+        FROM strategies ORDER BY name
+    """)
+    strategies = [dict(r) for r in cur.fetchall()]
+    for s in strategies:
+        s["created_at"] = s["created_at"].isoformat()
+        s["updated_at"] = s["updated_at"].isoformat()
+        if s["backtest_at"]:
+            s["backtest_at"] = s["backtest_at"].isoformat()
+
+    cur.close()
+    conn.close()
+    return {"collections": collections, "strategies": strategies}
+
+
+@app.post("/collections")
+def create_collection(c: CollectionCreate):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO collections (name, parent_id) VALUES (%s, %s) RETURNING id",
+        (c.name, c.parent_id),
+    )
+    conn.commit()
+    cid = cur.fetchone()[0]
+    cur.close()
+    conn.close()
+    return {"id": cid, "name": c.name, "status": "created"}
+
+
+@app.put("/collections/{collection_id}")
+def update_collection(collection_id: int, c: CollectionUpdate):
+    conn = get_db()
+    cur = conn.cursor()
+    updates, params = [], []
+    if c.name is not None:
+        updates.append("name = %s"); params.append(c.name)
+    if c.parent_id is not None:
+        updates.append("parent_id = %s"); params.append(c.parent_id)
+    if c.sort_order is not None:
+        updates.append("sort_order = %s"); params.append(c.sort_order)
+    if updates:
+        params.append(collection_id)
+        cur.execute(f"UPDATE collections SET {', '.join(updates)} WHERE id = %s", params)
+        conn.commit()
+    cur.close()
+    conn.close()
+    return {"id": collection_id, "status": "updated"}
+
+
+@app.delete("/collections/{collection_id}")
+def delete_collection(collection_id: int):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM collections WHERE id = %s", (collection_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {"id": collection_id, "status": "deleted"}
