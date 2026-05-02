@@ -258,6 +258,7 @@ class StrategyUpdate(BaseModel):
     stop_loss_pct: Optional[float] = None
     take_profit_pct: Optional[float] = None
     position_size: Optional[float] = None
+    collection_id: Optional[int] = None
 
 
 @app.get("/strategies")
@@ -331,12 +332,16 @@ def update_strategy(strategy_id: int, s: StrategyUpdate):
     if s.position_size is not None:
         updates.append("position_size = %s")
         params.append(s.position_size)
+    if s.collection_id is not None:
+        updates.append("collection_id = %s")
+        params.append(s.collection_id)
 
     updates.append("updated_at = NOW()")
     params.append(strategy_id)
 
-    cur.execute(f"UPDATE strategies SET {', '.join(updates)} WHERE id = %s", params)
-    conn.commit()
+    if len(updates) > 1:
+        cur.execute(f"UPDATE strategies SET {', '.join(updates)} WHERE id = %s", params)
+        conn.commit()
     cur.close()
     conn.close()
     return {"id": strategy_id, "status": "updated"}
