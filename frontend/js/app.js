@@ -1,5 +1,5 @@
 // ── Config ──
-const API_URL = 'http://178.104.196.80:8000';
+const API_URL = '/api';
 
 // ── State ──
 let chart = null;
