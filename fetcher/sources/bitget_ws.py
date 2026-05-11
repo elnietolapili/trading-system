@@ -1,37 +1,29 @@
 """
-Fetcher: Bitget WebSocket (futures) → OHLCV candles → PostgreSQL.
-Auto-reconnect, builds 2h/8h from 1h/4h.
+Bitget WebSocket source: subscribes to OHLCV candle channels.
+Reads active symbols from DB. Builds 2h/8h aggregated candles.
 """
 
-import os
 import json
 import asyncio
 import logging
 from datetime import datetime, timezone
 
 import websockets
-import psycopg2
-
-DB_HOST = os.getenv("DB_HOST", "db")
-DB_PORT = os.getenv("DB_PORT", "5432")
-DB_NAME = os.getenv("DB_NAME", "trading")
-DB_USER = os.getenv("DB_USER", "trading")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "changeme")
-SYMBOLS = os.getenv("SYMBOLS", "ETHUSDT").split(",")
+from db_helper import get_db, get_active_symbols
 
 WS_URL = "wss://ws.bitget.com/v2/ws/public"
-TIMEFRAMES = ["1h", "4h", "12h", "1D", "1W"]
-TF_MAP = {"1h": "1H", "4h": "4H", "12h": "12H", "1D": "1Dutc", "1W": "1Wutc"}
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-log = logging.getLogger("fetcher")
+# Bitget channel suffixes for each timeframe
+TF_MAP = {
+    "30m": "30min",
+    "1h": "1H",
+    "4h": "4H",
+    "12h": "12H",
+    "1D": "1Dutc",
+    "1W": "1Wutc",
+}
 
-
-def get_db():
-    return psycopg2.connect(
-        host=DB_HOST, port=DB_PORT, dbname=DB_NAME,
-        user=DB_USER, password=DB_PASSWORD,
-    )
+log = logging.getLogger("fetcher.ws")
 
 
 def insert_candle(conn, symbol, timeframe, candle):
@@ -41,9 +33,9 @@ def insert_candle(conn, symbol, timeframe, candle):
         INSERT INTO ohlcv (time, symbol, timeframe, open, high, low, close, volume)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (time, symbol, timeframe) DO UPDATE SET
-            open = EXCLUDED.open, high = EXCLUDED.high,
-            low = EXCLUDED.low, close = EXCLUDED.close,
-            volume = EXCLUDED.volume
+            open=EXCLUDED.open, high=EXCLUDED.high,
+            low=EXCLUDED.low, close=EXCLUDED.close,
+            volume=EXCLUDED.volume
     """, (ts, symbol, timeframe, float(candle[1]), float(candle[2]),
           float(candle[3]), float(candle[4]), float(candle[5])))
     conn.commit()
@@ -55,52 +47,63 @@ def build_aggregated_candle(conn, symbol, source_tf, target_tf, count, current_t
     cur = conn.cursor()
     cur.execute("""
         SELECT open, high, low, close, volume, time
-        FROM ohlcv
-        WHERE symbol = %s AND timeframe = %s AND time <= %s
+        FROM ohlcv WHERE symbol=%s AND timeframe=%s AND time<=%s
         ORDER BY time DESC LIMIT %s
     """, (symbol, source_tf, current_ts, count))
     rows = cur.fetchall()
 
     if len(rows) == count:
         rows.reverse()
-        o = rows[0][0]
-        h = max(r[1] for r in rows)
-        l = min(r[2] for r in rows)
-        c = rows[-1][3]
-        v = sum(r[4] for r in rows)
-        t = rows[0][5]
+        o, h, l, c = rows[0][0], max(r[1] for r in rows), min(r[2] for r in rows), rows[-1][3]
+        v, t = sum(r[4] for r in rows), rows[0][5]
 
         cur.execute("""
             INSERT INTO ohlcv (time, symbol, timeframe, open, high, low, close, volume)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (time, symbol, timeframe) DO UPDATE SET
-                open = EXCLUDED.open, high = EXCLUDED.high,
-                low = EXCLUDED.low, close = EXCLUDED.close,
-                volume = EXCLUDED.volume
+                open=EXCLUDED.open, high=EXCLUDED.high,
+                low=EXCLUDED.low, close=EXCLUDED.close,
+                volume=EXCLUDED.volume
         """, (t, symbol, target_tf, o, h, l, c, v))
         conn.commit()
         log.info(f"  Built {symbol} {target_tf} @ {t}")
-
     cur.close()
 
 
-async def run_websocket():
+async def run(reload_interval=300):
+    """
+    Main WebSocket loop. Reloads symbol config from DB every reload_interval seconds.
+    """
     conn = get_db()
 
     while True:
+        symbols_config = get_active_symbols()
+        symbols = [s["symbol"] for s in symbols_config]
+
+        if not symbols:
+            log.warning("No active symbols in fetcher_config. Sleeping 60s...")
+            await asyncio.sleep(60)
+            continue
+
+        # Only subscribe to native WS timeframes (not aggregated 2h/8h)
+        native_tfs = [tf for tf in TF_MAP.keys()]
+
         try:
             async with websockets.connect(WS_URL, ping_interval=25) as ws:
                 subs = []
-                for symbol in SYMBOLS:
-                    for tf in TIMEFRAMES:
-                        subs.append({
-                            "instType": "USDT-FUTURES",
-                            "channel": "candle" + TF_MAP[tf],
-                            "instId": symbol,
-                        })
+                for symbol in symbols:
+                    for tf in native_tfs:
+                        if tf in TF_MAP:
+                            subs.append({
+                                "instType": "USDT-FUTURES",
+                                "channel": "candle" + TF_MAP[tf],
+                                "instId": symbol,
+                            })
 
                 await ws.send(json.dumps({"op": "subscribe", "args": subs}))
-                log.info(f"Subscribed: {len(subs)} channels")
+                log.info(f"Subscribed: {len(subs)} channels for {symbols}")
+
+                tf_reverse = {v: k for k, v in TF_MAP.items()}
 
                 async for msg in ws:
                     try:
@@ -115,7 +118,6 @@ async def run_websocket():
                     symbol = arg.get("instId", "")
                     channel = arg.get("channel", "")
 
-                    tf_reverse = {v: k for k, v in TF_MAP.items()}
                     timeframe = None
                     for suffix, orig_tf in tf_reverse.items():
                         if channel == "candle" + suffix:
@@ -127,21 +129,17 @@ async def run_websocket():
 
                     for candle in data["data"]:
                         ts = insert_candle(conn, symbol, timeframe, candle)
-                        log.info(f"Candle {symbol} {timeframe} @ {ts}")
+                        log.debug(f"Candle {symbol} {timeframe} @ {ts}")
 
+                        # Build aggregated timeframes
                         if timeframe == "1h" and ts.hour % 2 == 1:
                             build_aggregated_candle(conn, symbol, "1h", "2h", 2, ts)
                         elif timeframe == "4h" and ts.hour % 8 == 4:
                             build_aggregated_candle(conn, symbol, "4h", "8h", 2, ts)
 
         except (websockets.ConnectionClosed, ConnectionError, OSError) as e:
-            log.warning(f"Connection lost: {e}. Reconnecting in 5s...")
+            log.warning(f"WS connection lost: {e}. Reconnecting in 5s...")
             await asyncio.sleep(5)
         except Exception as e:
-            log.error(f"Unexpected error: {e}. Reconnecting in 10s...")
+            log.error(f"WS unexpected error: {e}. Reconnecting in 10s...")
             await asyncio.sleep(10)
-
-
-if __name__ == "__main__":
-    log.info("Starting Bitget fetcher...")
-    asyncio.run(run_websocket())
