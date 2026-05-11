@@ -4,43 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trading System</title>
-    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        body { font-family: system-ui; background: #0a0a0f; color: #e0e0e0; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { text-align: center; }
+        h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+        p { color: #888; }
+        .status { display: inline-block; width: 8px; height: 8px; background: #2ecc71; border-radius: 50%; margin-right: 8px; }
+    </style>
 </head>
 <body>
-    <div class="header">
-        <div class="header-logo">trading<span>.</span>system</div>
-        <div class="header-status">
-            <div class="status-dot"></div>
-            <span id="system-status">Conectado</span>
-        </div>
+    <div class="container">
+        <h1>trading.system</h1>
+        <p><span class="status"></span>Backend v2 — routers modulares</p>
+        <p>Frontend React en desarrollo (Fase 5)</p>
+        <p style="margin-top: 2rem; font-size: 0.85rem; color: #555;">
+            API: <a href="/api/health" style="color: #3498db">/api/health</a>
+        </p>
     </div>
-    <div class="tabs">
-        <div class="tab active" data-tab="bots">Bots activos</div>
-        <div class="tab" data-tab="analysis">Análisis</div>
-        <div class="tab" data-tab="strategies">Estrategias</div>
-    </div>
-    <div class="content" id="content">
-        <div class="loading"><div class="spinner"></div> Cargando...</div>
-    </div>
-
-    <script src="js/app.js"></script>
-    <script src="js/bots.js"></script>
-    <script src="js/analysis.js"></script>
-    <script src="js/strategies.js"></script>
-    <script src="js/strategy-form.js"></script>
-    <script src="js/strategy-detail.js"></script>
-    <script>
-        // Inicializar tabs
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                renderTab(tab.dataset.tab);
-            });
-        });
-        renderTab('bots');
-    </script>
 </body>
 </html>

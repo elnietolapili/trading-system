@@ -1,206 +1,162 @@
 """
-Motor de backtest: evalúa reglas de estrategia contra datos OHLCV.
-
-Operadores disponibles para reglas:
-    crosses_above    - indicador cruza por encima de otro indicador o valor
-    crosses_below    - indicador cruza por debajo de otro indicador o valor
-    greater_than     - indicador mayor que valor o indicador
-    less_than        - indicador menor que valor o indicador
-    sar_below_price  - SAR está por debajo del precio (alcista)
-    sar_above_price  - SAR está por encima del precio (bajista)
+Backtest engine v1 — evaluates entry/exit rules against OHLCV data.
+This will be rewritten in Phase 4 with long/short/hedge, walk-forward, etc.
 """
 
+import os
+import psycopg2
+import psycopg2.extras
 
-def get_value(row, field):
-    """Obtiene un valor de la fila: puede ser un nombre de columna o un número."""
-    if isinstance(field, (int, float)):
-        return float(field)
-    if isinstance(field, str):
-        try:
-            return float(field)
-        except ValueError:
-            return row.get(field)
-    return None
+DB_HOST = os.getenv("DB_HOST", "db")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "trading")
+DB_USER = os.getenv("DB_USER", "trading")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "changeme")
 
 
-def eval_condition(row, prev_row, condition):
-    """Evalúa una condición individual contra una fila y su anterior."""
-    indicator = condition.get("indicator")
-    operator = condition.get("operator")
-    value = condition.get("value")
-
-    curr_val = get_value(row, indicator)
-    target_val = get_value(row, value)
-
-    if curr_val is None or target_val is None:
-        return False
-
-    if operator == "greater_than":
-        return curr_val > target_val
-
-    elif operator == "less_than":
-        return curr_val < target_val
-
-    elif operator == "crosses_above":
-        if prev_row is None:
-            return False
-        prev_val = get_value(prev_row, indicator)
-        prev_target = get_value(prev_row, value)
-        if prev_val is None or prev_target is None:
-            return False
-        return prev_val <= prev_target and curr_val > target_val
-
-    elif operator == "crosses_below":
-        if prev_row is None:
-            return False
-        prev_val = get_value(prev_row, indicator)
-        prev_target = get_value(prev_row, value)
-        if prev_val is None or prev_target is None:
-            return False
-        return prev_val >= prev_target and curr_val < target_val
-
-    elif operator == "sar_below_price":
-        sar_val = get_value(row, indicator)
-        return sar_val is not None and sar_val < row.get("close", 0)
-
-    elif operator == "sar_above_price":
-        sar_val = get_value(row, indicator)
-        return sar_val is not None and sar_val > row.get("close", 0)
-
-    return False
+def get_db():
+    return psycopg2.connect(
+        host=DB_HOST, port=DB_PORT, dbname=DB_NAME,
+        user=DB_USER, password=DB_PASSWORD,
+    )
 
 
-def eval_rules(row, prev_row, rules):
-    """Evalúa una lista de reglas (AND). Todas deben cumplirse."""
-    if not rules:
-        return False
-    return all(eval_condition(row, prev_row, r) for r in rules)
+def run_backtest(symbol, timeframe, entry_rules, exit_rules,
+                 stop_loss_pct=None, take_profit_pct=None, position_size=100):
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        "SELECT * FROM ohlcv WHERE symbol = %s AND timeframe = %s ORDER BY time ASC",
+        (symbol, timeframe),
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
 
+    if not rows:
+        return {"error": "No data", "trades": [], "metrics": {}, "equity_curve": []}
 
-def run_backtest(candles, entry_rules, exit_rules, stop_loss_pct=None,
-                 take_profit_pct=None, position_size=100):
-    """
-    Ejecuta backtest sobre una lista de velas.
-
-    Args:
-        candles: lista de dicts con OHLCV + indicadores
-        entry_rules: lista de condiciones de entrada
-        exit_rules: lista de condiciones de salida
-        stop_loss_pct: % de stop loss (ej: 2.0)
-        take_profit_pct: % de take profit (ej: 5.0)
-        position_size: tamaño de posición en USD
-
-    Returns:
-        dict con trades, métricas y equity curve
-    """
+    candles = [dict(r) for r in rows]
     trades = []
     equity_curve = []
-    position = None  # None = sin posición, dict = posición abierta
-    balance = position_size
+    equity = position_size
+    in_position = False
+    entry_price = 0
+    entry_time = None
 
-    for i, row in enumerate(candles):
-        prev_row = candles[i - 1] if i > 0 else None
-        close = row.get("close")
-        time = row.get("time")
+    for i in range(1, len(candles)):
+        prev = candles[i - 1]
+        curr = candles[i]
 
-        if close is None:
-            continue
-
-        # ── Sin posición: buscar entrada ──
-        if position is None:
-            if eval_rules(row, prev_row, entry_rules):
-                quantity = balance / close
-                position = {
-                    "entry_time": time,
-                    "entry_price": close,
-                    "quantity": quantity,
-                    "cost": balance,
-                }
-
-        # ── Con posición: buscar salida ──
+        if not in_position:
+            if evaluate_rules(entry_rules, prev, curr):
+                in_position = True
+                entry_price = curr["close"]
+                entry_time = curr["time"]
         else:
-            should_exit = False
-            exit_reason = "signal"
+            close = curr["close"]
+            pnl_pct = (close - entry_price) / entry_price * 100
 
-            # Check stop loss
-            if stop_loss_pct:
-                sl_price = position["entry_price"] * (1 - stop_loss_pct / 100)
-                if row.get("low", close) <= sl_price:
-                    should_exit = True
-                    close = sl_price  # Salir al precio de SL
-                    exit_reason = "stop_loss"
+            exit_signal = evaluate_rules(exit_rules, prev, curr)
+            hit_sl = stop_loss_pct and pnl_pct <= -stop_loss_pct
+            hit_tp = take_profit_pct and pnl_pct >= take_profit_pct
 
-            # Check take profit
-            if not should_exit and take_profit_pct:
-                tp_price = position["entry_price"] * (1 + take_profit_pct / 100)
-                if row.get("high", close) >= tp_price:
-                    should_exit = True
-                    close = tp_price  # Salir al precio de TP
-                    exit_reason = "take_profit"
+            if exit_signal or hit_sl or hit_tp:
+                pnl = position_size * pnl_pct / 100
+                equity += pnl
 
-            # Check exit rules
-            if not should_exit and eval_rules(row, prev_row, exit_rules):
-                should_exit = True
-                close = row.get("close")
-
-            if should_exit:
-                pnl = (close - position["entry_price"]) * position["quantity"]
-                pnl_pct = (close / position["entry_price"] - 1) * 100
-                balance += pnl
+                reason = "signal"
+                if hit_sl:
+                    reason = "stop_loss"
+                elif hit_tp:
+                    reason = "take_profit"
 
                 trades.append({
-                    "entry_time": position["entry_time"],
-                    "exit_time": time,
-                    "entry_price": position["entry_price"],
-                    "exit_price": close,
-                    "quantity": position["quantity"],
-                    "pnl": round(pnl, 4),
-                    "pnl_pct": round(pnl_pct, 4),
-                    "exit_reason": exit_reason,
+                    "entry_time": str(entry_time),
+                    "exit_time": str(curr["time"]),
+                    "entry_price": float(entry_price),
+                    "exit_price": float(close),
+                    "pnl": round(pnl, 2),
+                    "pnl_pct": round(pnl_pct, 2),
+                    "exit_reason": reason,
                 })
-
-                position = None
+                in_position = False
 
         equity_curve.append({
-            "time": time,
-            "equity": round(balance + (
-                (close - position["entry_price"]) * position["quantity"]
-                if position else 0
-            ), 4),
+            "time": str(curr["time"]),
+            "equity": round(equity, 2),
         })
 
-    # ── Métricas ──
     winning = [t for t in trades if t["pnl"] > 0]
     losing = [t for t in trades if t["pnl"] <= 0]
     total_pnl = sum(t["pnl"] for t in trades)
+    gross_profit = sum(t["pnl"] for t in winning)
+    gross_loss = abs(sum(t["pnl"] for t in losing))
 
     metrics = {
         "total_trades": len(trades),
         "winning_trades": len(winning),
         "losing_trades": len(losing),
-        "win_rate": round(len(winning) / len(trades) * 100, 2) if trades else 0,
-        "total_pnl": round(total_pnl, 4),
-        "return_pct": round(total_pnl / position_size * 100, 4) if position_size else 0,
-        "avg_pnl": round(total_pnl / len(trades), 4) if trades else 0,
-        "best_trade": round(max(t["pnl"] for t in trades), 4) if trades else 0,
-        "worst_trade": round(min(t["pnl"] for t in trades), 4) if trades else 0,
-        "avg_win": round(sum(t["pnl"] for t in winning) / len(winning), 4) if winning else 0,
-        "avg_loss": round(sum(t["pnl"] for t in losing) / len(losing), 4) if losing else 0,
-        "max_drawdown": round(calculate_max_drawdown(equity_curve), 4),
-        "profit_factor": round(
-            sum(t["pnl"] for t in winning) / abs(sum(t["pnl"] for t in losing)), 4
-        ) if losing and sum(t["pnl"] for t in losing) != 0 else 999,
+        "win_rate": round(len(winning) / len(trades) * 100, 1) if trades else 0,
+        "total_pnl": round(total_pnl, 2),
+        "avg_pnl": round(total_pnl / len(trades), 2) if trades else 0,
+        "profit_factor": round(gross_profit / gross_loss, 2) if gross_loss > 0 else 999,
+        "max_drawdown": round(calculate_max_drawdown(equity_curve), 2),
+        "final_equity": round(equity, 2),
+        "candles_analyzed": len(candles),
     }
 
-    return {
-        "trades": trades,
-        "metrics": metrics,
-        "equity_curve": equity_curve,
-    }
+    return {"trades": trades, "metrics": metrics, "equity_curve": equity_curve}
+
+
+def evaluate_rules(rules, prev, curr):
+    if not rules:
+        return False
+    for rule in rules:
+        indicator = rule["indicator"]
+        operator = rule["operator"]
+        value = rule["value"]
+
+        curr_val = get_indicator_value(curr, indicator)
+        prev_val = get_indicator_value(prev, indicator)
+        compare_val = get_indicator_value(curr, value) if isinstance(value, str) else float(value)
+        prev_compare = get_indicator_value(prev, value) if isinstance(value, str) else float(value)
+
+        if curr_val is None or compare_val is None:
+            return False
+
+        if operator == "crosses_above":
+            if not (prev_val is not None and prev_val <= prev_compare and curr_val > compare_val):
+                return False
+        elif operator == "crosses_below":
+            if not (prev_val is not None and prev_val >= prev_compare and curr_val < compare_val):
+                return False
+        elif operator == "greater_than":
+            if not (curr_val > compare_val):
+                return False
+        elif operator == "less_than":
+            if not (curr_val < compare_val):
+                return False
+        elif operator == "sar_below_price":
+            sar_val = get_indicator_value(curr, indicator)
+            if not (sar_val is not None and ssar_val < curr["close"]):
+                return False
+        elif operator == "sar_above_price":
+            sar_val = get_indicator_value(curr, indicator)
+            if not (sar_val is not None and sar_val > curr["close"]):
+                return False
+        else:
+            return False
+    return True
+
+
+def get_indicator_value(candle, key):
+    if key in candle and candle[key] is not None:
+        return float(candle[key])
+    return None
 
 
 def calculate_max_drawdown(equity_curve):
-    """Calcula el máximo drawdown en USD."""
     if not equity_curve:
         return 0
     peak = equity_curve[0]["equity"]
