@@ -110,8 +110,27 @@ def delete_strategy(strategy_id: int):
     return {"id": strategy_id, "status": "deleted"}
 
 
+class BacktestRequest(BaseModel):
+    direction: str = "long"  # long, short, hedge
+    backtest_type: str = "simple"  # simple, walk_forward
+    start: Optional[str] = None
+    end: Optional[str] = None
+
+
+class OptimizeRequest(BaseModel):
+    param_ranges: dict  # {"stop_loss_pct": [2,3,5], "take_profit_pct": [3,5,10]}
+    direction: str = "long"
+    start: Optional[str] = None
+    end: Optional[str] = None
+    max_workers: int = 2
+    early_stop_drawdown: float = 50.0
+
+
 @router.post("/strategies/{strategy_id}/backtest")
-def backtest_strategy(strategy_id: int):
+def backtest_strategy(strategy_id: int, req: BacktestRequest = None):
+    if req is None:
+        req = BacktestRequest()
+
     with get_cursor() as (conn, cur):
         cur.execute("SELECT * FROM strategies WHERE id = %s", (strategy_id,))
         row = cur.fetchone()
@@ -131,16 +150,16 @@ def backtest_strategy(strategy_id: int):
         timeframe=strategy["timeframe"],
         entry_rules=entry_rules,
         exit_rules=exit_rules,
+        direction=req.direction,
         stop_loss_pct=strategy.get("stop_loss_pct"),
         take_profit_pct=strategy.get("take_profit_pct"),
         position_size=strategy.get("position_size", 100),
+        start=req.start,
+        end=req.end,
+        backtest_type=req.backtest_type,
+        strategy_id=strategy_id,
     )
 
-    with get_cursor(dict_cursor=False) as (conn, cur):
-        cur.execute(
-            "UPDATE strategies SET last_backtest=%s, backtest_at=NOW(), updated_at=NOW() WHERE id=%s",
-            (json.dumps(result), strategy_id),
-        )
     return {
         "strategy_id": strategy_id,
         "strategy_name": strategy["name"],
@@ -148,6 +167,87 @@ def backtest_strategy(strategy_id: int):
         "timeframe": strategy["timeframe"],
         "result": result,
     }
+
+
+@router.post("/strategies/{strategy_id}/optimize")
+def optimize_strategy(strategy_id: int, req: OptimizeRequest):
+    from strategies.optimizer import run_optimization
+
+    with get_cursor() as (conn, cur):
+        cur.execute("SELECT * FROM strategies WHERE id = %s", (strategy_id,))
+        row = cur.fetchone()
+        if not row:
+            return {"error": "Strategy not found"}
+        strategy = dict(row)
+
+    entry_rules = strategy["entry_rules"]
+    exit_rules = strategy["exit_rules"]
+    if isinstance(entry_rules, str):
+        entry_rules = json.loads(entry_rules)
+    if isinstance(exit_rules, str):
+        exit_rules = json.loads(exit_rules)
+
+    result = run_optimization(
+        strategy_id=strategy_id,
+        symbol=strategy["symbol"],
+        timeframe=strategy["timeframe"],
+        entry_rules=entry_rules,
+        exit_rules=exit_rules,
+        param_ranges=req.param_ranges,
+        direction=req.direction,
+        position_size=strategy.get("position_size", 100),
+        start=req.start,
+        end=req.end,
+        max_workers=req.max_workers,
+        early_stop_drawdown=req.early_stop_drawdown,
+    )
+
+    return {
+        "strategy_id": strategy_id,
+        "strategy_name": strategy["name"],
+        "result": result,
+    }
+
+
+@router.get("/strategies/{strategy_id}/results")
+def get_backtest_results(strategy_id: int):
+    with get_cursor() as (conn, cur):
+        cur.execute("""
+            SELECT id, pnl_total, pnl_pct, win_rate, max_drawdown, profit_factor,
+                   sharpe_ratio, num_trades, timeframe, date_from, date_to,
+                   backtest_type, duration_seconds, candles_processed,
+                   is_favorite, created_at
+            FROM backtest_results WHERE strategy_id = %s
+            ORDER BY created_at DESC
+        """, (strategy_id,))
+        rows = cur.fetchall()
+    results = []
+    for r in rows:
+        d = dict(r)
+        d["created_at"] = d["created_at"].isoformat()
+        if d.get("date_from"): d["date_from"] = d["date_from"].isoformat()
+        if d.get("date_to"): d["date_to"] = d["date_to"].isoformat()
+        results.append(d)
+    return {"strategy_id": strategy_id, "results": results}
+
+
+@router.get("/backtest/{backtest_id}/trades")
+def get_backtest_trades(backtest_id: int):
+    with get_cursor() as (conn, cur):
+        cur.execute("""
+            SELECT entry_time, exit_time, entry_price, exit_price,
+                   direction, pnl, pnl_pct, exit_reason
+            FROM backtest_trades WHERE backtest_id = %s
+            ORDER BY entry_time ASC
+        """, (backtest_id,))
+        rows = cur.fetchall()
+    trades = []
+    for r in rows:
+        t = dict(r)
+        t["entry_time"] = t["entry_time"].isoformat()
+        if t.get("exit_time"): t["exit_time"] = t["exit_time"].isoformat()
+        trades.append(t)
+    return {"backtest_id": backtest_id, "trades": trades}
 
 
 @router.get("/strategies/operators")
