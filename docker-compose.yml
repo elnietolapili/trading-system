@@ -36,6 +36,8 @@ services:
       - "127.0.0.1:8000:8000"
     volumes:
       - ./indicators/lib:/app/lib
+      - ./indicators/plugin_registry.py:/app/plugin_registry.py
+      - ./indicators/plugins:/app/plugins
 
   nginx:
     image: nginx:alpine
