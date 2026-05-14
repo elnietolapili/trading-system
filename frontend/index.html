@@ -1,498 +1,545 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trading System</title>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-0:#08080c; --bg-1:#0e0e14; --bg-2:#16161e; --bg-3:#1e1e28; --bg-4:#282834;
-            --border:#2a2a38; --text-0:#f0f0f4; --text-1:#b8b8c8; --text-2:#78788e;
-            --green:#22c55e; --green-dim:#22c55e33; --red:#ef4444; --red-dim:#ef444433;
-            --accent:#6366f1; --accent-dim:#6366f133; --yellow:#eab308; --yellow-dim:#eab30833;
-            --cyan:#06b6d4; --font-mono:'JetBrains Mono',monospace; --font-sans:'Outfit',sans-serif;
-        }
-        *{margin:0;padding:0;box-sizing:border-box}
-        body{background:var(--bg-0);color:var(--text-0);font-family:var(--font-sans);overflow:hidden;height:100vh}
-        ::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-track{background:var(--bg-1)} ::-webkit-scrollbar-thumb{background:var(--bg-4);border-radius:3px}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Trading System</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+--bg0:#060608;--bg1:#0a0a0e;--bg2:#101016;--bg3:#16161e;--bg4:#1e1e28;--bg5:#282834;
+--bd:#1a1a26;--bd2:#252532;
+--t0:#e8e8f0;--t1:#a8a8be;--t2:#68687e;--t3:#484860;
+--green:#00e676;--green2:#00c853;--green-g:rgba(0,230,118,.12);--green-g2:rgba(0,230,118,.06);
+--red:#ff5252;--red2:#d32f2f;--red-g:rgba(255,82,82,.12);
+--cyan:#00e5ff;--cyan-g:rgba(0,229,255,.1);
+--yellow:#ffd600;--yellow-g:rgba(255,214,0,.1);
+--neon-glow:0 0 20px rgba(0,230,118,.15);
+--font:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg0);color:var(--t0);font-family:var(--font);overflow:hidden;height:100vh;font-size:12px}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg1)}
+::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--t3)}
 
-        .app{display:flex;height:100vh}
-        .sidebar{width:56px;background:var(--bg-1);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px;flex-shrink:0}
-        .sidebar-btn{width:40px;height:40px;border:none;background:transparent;color:var(--text-2);cursor:pointer;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .15s}
-        .sidebar-btn:hover{background:var(--bg-3);color:var(--text-1)}
-        .sidebar-btn.active{background:var(--accent-dim);color:var(--accent)}
-        .sidebar-logo{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent);margin-bottom:16px;letter-spacing:-.5px}
+.app{display:flex;height:100vh}
 
-        .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-        .topbar{height:44px;background:var(--bg-1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0}
-        .topbar-title{font-weight:600;font-size:14px;color:var(--text-0)}
-        .content{flex:1;overflow-y:auto;padding:16px}
+/* SIDEBAR */
+.sb{width:48px;background:var(--bg1);border-right:1px solid var(--bd);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:2px;flex-shrink:0;z-index:10}
+.sb-logo{font-size:9px;font-weight:800;color:var(--green);letter-spacing:1px;margin-bottom:12px;padding:6px 0}
+.sb-btn{width:36px;height:36px;border:none;background:transparent;color:var(--t3);cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:all .12s;position:relative}
+.sb-btn:hover{background:var(--bg3);color:var(--t1)}
+.sb-btn.on{color:var(--green);background:var(--green-g)}
+.sb-btn.on::before{content:'';position:absolute;left:0;top:8px;bottom:8px;width:2px;background:var(--green);border-radius:0 2px 2px 0}
+.sb-sep{width:24px;height:1px;background:var(--bd);margin:8px 0}
 
-        .sel{background:var(--bg-2);border:1px solid var(--border);color:var(--text-0);padding:6px 10px;border-radius:6px;font-family:var(--font-mono);font-size:12px;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;padding-right:24px}
-        .sel option{background:var(--bg-2)}
-        .btn{background:var(--bg-3);border:1px solid var(--border);color:var(--text-0);padding:6px 14px;border-radius:6px;font-size:12px;font-family:var(--font-sans);cursor:pointer;transition:all .15s;font-weight:500}
-        .btn:hover{background:var(--bg-4);border-color:var(--text-2)}
-        .btn-accent{background:var(--accent);border-color:var(--accent);color:#fff}
-        .btn-accent:hover{opacity:.85}
-        .btn-sm{padding:4px 10px;font-size:11px}
-        .card{background:var(--bg-1);border:1px solid var(--border);border-radius:10px;padding:16px}
-        .card-header{font-size:12px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
-        .stat-value{font-family:var(--font-mono);font-size:22px;font-weight:700}
-        .stat-label{font-size:11px;color:var(--text-2);margin-top:2px}
-        .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-        .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-        .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-        .table{width:100%;border-collapse:collapse;font-size:12px}
-        .table th{text-align:left;padding:8px 12px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
-        .table td{padding:8px 12px;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:12px}
-        .table tr:hover td{background:var(--bg-2)}
-        .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;font-family:var(--font-mono)}
-        .badge-green{background:var(--green-dim);color:var(--green)}
-        .badge-red{background:var(--red-dim);color:var(--red)}
-        .badge-yellow{background:var(--yellow-dim);color:var(--yellow)}
-        .badge-accent{background:var(--accent-dim);color:var(--accent)}
-        .pnl-pos{color:var(--green)} .pnl-neg{color:var(--red)}
-        .input{background:var(--bg-2);border:1px solid var(--border);color:var(--text-0);padding:8px 10px;border-radius:6px;font-family:var(--font-mono);font-size:12px;outline:none;width:100%}
-        .input:focus{border-color:var(--accent)}
-        .label{font-size:11px;color:var(--text-2);margin-bottom:4px;font-weight:500}
-        .chart-container{width:100%;height:400px;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
-        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:100}
-        .modal{background:var(--bg-1);border:1px solid var(--border);border-radius:12px;padding:24px;min-width:480px;max-width:600px;max-height:80vh;overflow-y:auto}
-        .modal h3{font-size:16px;margin-bottom:16px}
-        .empty-state{text-align:center;padding:60px 20px;color:var(--text-2)}
-        .empty-state p{font-size:13px}
-        .loading{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text-2);gap:8px;font-size:13px}
-        .spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        .rule-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
-        .rule-row .sel,.rule-row .input{flex:1}
-        .toast{position:fixed;bottom:20px;right:20px;background:var(--bg-3);border:1px solid var(--border);padding:10px 16px;border-radius:8px;font-size:12px;z-index:200;animation:slideUp .3s}
-        @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
-        .flex{display:flex}.flex-col{flex-direction:column}.gap-2{gap:8px}.gap-3{gap:12px}.gap-4{gap:16px}
-        .items-center{align-items:center}.justify-between{justify-content:space-between}.flex-1{flex:1}
-        .mb-3{margin-bottom:12px}.mb-4{margin-bottom:16px}.mt-3{margin-top:12px}
-    </style>
+/* MAIN */
+.mn{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.top{height:36px;background:var(--bg1);border-bottom:1px solid var(--bd);display:flex;align-items:center;padding:0 12px;gap:10px;flex-shrink:0}
+.top-t{font-weight:700;font-size:11px;color:var(--t0);text-transform:uppercase;letter-spacing:1.5px}
+.top-sub{font-size:10px;color:var(--t3)}
+.cnt{flex:1;overflow-y:auto;overflow-x:hidden}
+
+/* CONTROLS */
+.sel{background:var(--bg2);border:1px solid var(--bd);color:var(--t0);padding:4px 8px;border-radius:4px;font:inherit;font-size:11px;cursor:pointer;outline:none;appearance:none}
+.sel:focus{border-color:var(--green)}
+.sel option{background:var(--bg2)}
+.btn{background:var(--bg3);border:1px solid var(--bd);color:var(--t1);padding:5px 12px;border-radius:4px;font:inherit;font-size:11px;cursor:pointer;transition:all .12s;font-weight:500;white-space:nowrap}
+.btn:hover{background:var(--bg4);border-color:var(--bd2);color:var(--t0)}
+.btn:active{transform:scale(.97)}
+.btn-g{background:var(--green-g);border-color:rgba(0,230,118,.3);color:var(--green)}
+.btn-g:hover{background:rgba(0,230,118,.2);border-color:var(--green)}
+.btn-r{color:var(--red);border-color:rgba(255,82,82,.2)}
+.btn-r:hover{background:var(--red-g);border-color:var(--red)}
+.btn-sm{padding:3px 8px;font-size:10px}
+.inp{background:var(--bg2);border:1px solid var(--bd);color:var(--t0);padding:6px 8px;border-radius:4px;font:inherit;font-size:11px;outline:none;width:100%}
+.inp:focus{border-color:var(--green)}
+.lbl{font-size:10px;color:var(--t3);margin-bottom:3px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+
+/* CARDS */
+.card{background:var(--bg1);border:1px solid var(--bd);border-radius:6px;overflow:hidden}
+.card-h{font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;padding:10px 12px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{text-align:left;padding:6px 10px;font-weight:600;color:var(--t3);font-size:10px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--bd);background:var(--bg2);position:sticky;top:0;z-index:1}
+.tbl td{padding:6px 10px;border-bottom:1px solid var(--bd);font-size:11px;color:var(--t1)}
+.tbl tr:hover td{background:var(--bg2)}
+
+/* BADGES */
+.bg{display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:.3px}
+.bg-g{background:var(--green-g);color:var(--green)}
+.bg-r{background:var(--red-g);color:var(--red)}
+.bg-c{background:var(--cyan-g);color:var(--cyan)}
+.bg-y{background:var(--yellow-g);color:var(--yellow)}
+
+/* PROFIT/LOSS */
+.pos{color:var(--green)}.neg{color:var(--red)}
+
+/* LAYOUT UTILS */
+.fx{display:flex}.fc{flex-direction:column}.fw{flex-wrap:wrap}
+.ac{align-items:center}.jb{justify-content:space-between}.jc{justify-content:center}
+.g1{gap:4px}.g2{gap:8px}.g3{gap:12px}.g4{gap:16px}
+.f1{flex:1}.mn0{min-width:0}
+.p2{padding:8px}.p3{padding:12px}.p4{padding:16px}
+.mb2{margin-bottom:8px}.mb3{margin-bottom:12px}
+
+/* EXPANDABLE LIST */
+.exp{border:1px solid var(--bd);border-radius:6px;background:var(--bg1);overflow:hidden;margin-bottom:6px;transition:border-color .15s}
+.exp:hover{border-color:var(--bd2)}
+.exp-h{padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .1s;user-select:none}
+.exp-h:hover{background:var(--bg2)}
+.exp-arr{color:var(--t3);transition:transform .2s;font-size:10px;flex-shrink:0}
+.exp-arr.open{transform:rotate(90deg)}
+.exp-b{border-top:1px solid var(--bd);background:var(--bg2);overflow:hidden}
+
+/* CHART */
+.ch-wrap{border:1px solid var(--bd);border-radius:6px;overflow:hidden;background:var(--bg1)}
+
+/* GRID */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+
+/* STAT */
+.stat{padding:10px 12px}
+.stat-v{font-size:18px;font-weight:700;line-height:1.2}
+.stat-l{font-size:9px;color:var(--t3);margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
+
+/* TOAST */
+.toast{position:fixed;bottom:16px;right:16px;background:var(--bg3);border:1px solid var(--bd2);padding:8px 14px;border-radius:6px;font-size:11px;z-index:999;animation:tIn .25s}
+@keyframes tIn{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* SPINNER */
+.spin{width:14px;height:14px;border:2px solid var(--bd2);border-top-color:var(--green);border-radius:50%;animation:sp .5s linear infinite;flex-shrink:0}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* EMPTY */
+.empty{text-align:center;padding:48px 16px;color:var(--t3)}
+.empty p{font-size:11px;margin-top:8px}
+
+/* MODAL */
+.mdl-o{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:100}
+.mdl{background:var(--bg1);border:1px solid var(--bd2);border-radius:8px;padding:20px;max-width:640px;width:90%;max-height:80vh;overflow-y:auto}
+
+/* RULE ROW */
+.rr{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.rr .sel,.rr .inp{flex:1;min-width:0}
+
+/* PAGE-SPECIFIC: Create strategy */
+.create-page{max-width:680px;margin:0 auto;padding:20px}
+.create-page h2{font-size:14px;font-weight:700;color:var(--t0);margin-bottom:16px;letter-spacing:1px;text-transform:uppercase}
+.create-sec{margin-bottom:16px}
+.create-sec-t{font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--bd)}
+
+/* Neon accents */
+.neon-line{height:1px;background:linear-gradient(90deg,var(--green),transparent);margin:12px 0}
+</style>
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel">
-const{useState,useEffect,useRef,useCallback}=React;
+<script>
+'use strict';
+const h=React.createElement,{useState:uS,useEffect:uE,useRef:uR,useCallback:uC,useMemo:uM}=React;
 
+/* ── API ─────────────────────────────── */
 const API='/api';
-const api={
-    get:async(p)=>{const r=await fetch(`${API}${p}`);return r.json()},
-    post:async(p,d)=>{const r=await fetch(`${API}${p}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});return r.json()},
-    put:async(p,d)=>{const r=await fetch(`${API}${p}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});return r.json()},
-    del:async(p)=>{const r=await fetch(`${API}${p}`,{method:'DELETE'});return r.json()},
-};
+const G=p=>fetch(API+p).then(r=>r.json());
+const P=(p,d)=>fetch(API+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).then(r=>r.json());
+const U=(p,d)=>fetch(API+p,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).then(r=>r.json());
+const D=p=>fetch(API+p,{method:'DELETE'}).then(r=>r.json());
 
-const Icon=({name,size=18})=>{
-    const i={
-        chart:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>,
-        strategy:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
-        bot:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg>,
-        health:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
-        plus:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
-        play:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>,
-        trash:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
-        refresh:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>,
-        x:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-    };
-    return i[name]||null;
+/* ── ICONS (svg paths) ───────────────── */
+function Ic({d,s=16,c='currentColor'}){
+return h('svg',{width:s,height:s,viewBox:'0 0 24 24',fill:'none',stroke:c,strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},
+...d.map(p=>h('path',{d:p,key:p})))}
+const IC={
+chart:['M3 3v18h18','M19 9l-5 5-4-4-3 3'],
+strat:['M4 4h6v6H4z','M14 4h6v6h-6z','M4 14h6v6H4z','M14 14h6v6h-6z'],
+bot:['M3 11h18v10H3z','M12 3a2 2 0 100 4 2 2 0 000-4z','M12 7v4','M8 16h0','M16 16h0'],
+health:['M22 12h-4l-3 9L9 3l-3 9H2'],
+plus:['M12 5v14','M5 12h14'],
+play:['M5 3l14 9-14 9V3z'],
+trash:['M3 6h18','M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2'],
+x:['M18 6L6 18','M6 6l12 12'],
+chev:['M9 18l6-6-6-6'],
+ref:['M23 4v6h-6','M1 20v-6h6','M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15'],
+back:['M19 12H5','M12 19l-7-7 7-7'],
+star:['M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2'],
 };
+function Icon({name,size,color}){return Ic({d:IC[name]||[],s:size||16,c:color})}
 
-let toastTimer;
+/* ── TOAST HOOK ──────────────────────── */
+let _tt;
 function useToast(){
-    const[msg,setMsg]=useState(null);
-    const show=(t)=>{clearTimeout(toastTimer);setMsg(t);toastTimer=setTimeout(()=>setMsg(null),3000)};
-    const Toast=msg?<div className="toast">{msg}</div>:null;
-    return{show,Toast};
+const[m,sM]=uS(null);
+const show=t=>{clearTimeout(_tt);sM(t);_tt=setTimeout(()=>sM(null),3000)};
+return{show,T:m?h('div',{className:'toast'},m):null};
 }
 
-// ── CHART ─────────────────────────────────────────────────────
+/* ── CHART PAGE ──────────────────────── */
 function ChartPage(){
-    const chartRef=useRef(null);const chartObj=useRef(null);
-    const[symbols,setSymbols]=useState([]);const[timeframes,setTimeframes]=useState([]);
-    const[symbol,setSymbol]=useState('');const[tf,setTf]=useState('');
-    const[loading,setLoading]=useState(false);const[count,setCount]=useState(0);
+const cRef=uR(null),cObj=uR(null),serRef=uR(null);
+const[syms,setSy]=uS([]);const[tfs,setTf]=uS([]);
+const[sym,sS]=uS('');const[tf,sT]=uS('');
+const[ld,sL]=uS(false);const[cnt,sC]=uS(0);
+const[ohlc,sO]=uS(null);
 
-    useEffect(()=>{
-        api.get('/symbols').then(d=>{setSymbols(d.symbols||[]);if(d.symbols?.length)setSymbol(d.symbols[0])});
-        api.get('/timeframes').then(d=>{setTimeframes(d.timeframes||[]);if(d.timeframes?.length)setTf(d.timeframes[0])});
-    },[]);
+uE(()=>{
+G('/symbols').then(d=>{setSy(d.symbols||[]);if(d.symbols?.length)sS(d.symbols[0])});
+G('/timeframes').then(d=>{setTf(d.timeframes||[]);if(d.timeframes?.length)sT(d.timeframes[0])});
+},[]);
 
-    useEffect(()=>{
-        if(!symbol||!tf||!chartRef.current)return;
-        setLoading(true);
-        if(chartObj.current){chartObj.current.remove();chartObj.current=null}
-        const chart=LightweightCharts.createChart(chartRef.current,{
-            layout:{background:{color:'#0e0e14'},textColor:'#78788e',fontFamily:'JetBrains Mono'},
-            grid:{vertLines:{color:'#1e1e28'},horzLines:{color:'#1e1e28'}},
-            crosshair:{mode:0},rightPriceScale:{borderColor:'#2a2a38'},
-            timeScale:{borderColor:'#2a2a38',timeVisible:true},
-        });
-        chartObj.current=chart;
-        const series=chart.addCandlestickSeries({
-            upColor:'#22c55e',downColor:'#ef4444',borderUpColor:'#22c55e',borderDownColor:'#ef4444',
-            wickUpColor:'#22c55e80',wickDownColor:'#ef444480',
-        });
-        api.get(`/candles?symbol=${symbol}&timeframe=${tf}&limit=2000`).then(d=>{
-            const candles=(d.candles||[]).map(c=>({
-                time:Math.floor(new Date(c.time).getTime()/1000),
-                open:parseFloat(c.open),high:parseFloat(c.high),low:parseFloat(c.low),close:parseFloat(c.close),
-            }));
-            series.setData(candles);chart.timeScale().fitContent();setCount(candles.length);setLoading(false);
-        });
-        const ro=new ResizeObserver(()=>{if(chartRef.current)chart.applyOptions({width:chartRef.current.clientWidth,height:chartRef.current.clientHeight})});
-        ro.observe(chartRef.current);
-        return()=>{ro.disconnect();chart.remove();chartObj.current=null};
-    },[symbol,tf]);
+uE(()=>{
+if(!sym||!tf||!cRef.current)return;
+sL(true);
+if(!cObj.current){
+const c=LightweightCharts.createChart(cRef.current,{
+layout:{background:{color:'#0a0a0e'},textColor:'#68687e',fontFamily:'JetBrains Mono',fontSize:10},
+grid:{vertLines:{color:'#12121a'},horzLines:{color:'#12121a'}},
+crosshair:{mode:0,vertLine:{color:'rgba(0,230,118,.15)',labelBackgroundColor:'#1e1e28'},horzLine:{color:'rgba(0,230,118,.15)',labelBackgroundColor:'#1e1e28'}},
+rightPriceScale:{borderColor:'#1a1a26',scaleMargins:{top:.05,bottom:.05}},
+timeScale:{borderColor:'#1a1a26',timeVisible:true,secondsVisible:false},
+handleScroll:{vertTouchDrag:false},
+});
+cObj.current=c;
+serRef.current=c.addCandlestickSeries({
+upColor:'#00e676',downColor:'#ff5252',borderUpColor:'#00e676',borderDownColor:'#ff5252',
+wickUpColor:'rgba(0,230,118,.5)',wickDownColor:'rgba(255,82,82,.5)',
+});
+const ro=new ResizeObserver(()=>{if(cRef.current)c.applyOptions({width:cRef.current.clientWidth,height:cRef.current.clientHeight})});
+ro.observe(cRef.current);
+}
+G(`/candles?symbol=${sym}&timeframe=${tf}&limit=5000`).then(d=>{
+const cd=(d.candles||[]).map(c=>({time:Math.floor(new Date(c.time).getTime()/1000),open:+c.open,high:+c.high,low:+c.low,close:+c.close}));
+serRef.current.setData(cd);
+cObj.current.timeScale().fitContent();
+sC(cd.length);sL(false);
+if(cd.length>0){const l=cd[cd.length-1];sO(l)}
+});
+},[sym,tf]);
 
-    return(
-        <div className="flex flex-col gap-3" style={{height:'100%'}}>
-            <div className="flex items-center gap-2">
-                <select className="sel" value={symbol} onChange={e=>setSymbol(e.target.value)}>{symbols.map(s=><option key={s} value={s}>{s}</option>)}</select>
-                <select className="sel" value={tf} onChange={e=>setTf(e.target.value)}>{timeframes.map(t=><option key={t} value={t}>{t}</option>)}</select>
-                <span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--text-2)'}}>{count>0&&`${count.toLocaleString()} velas`}</span>
-                {loading&&<div className="spinner"/>}
-            </div>
-            <div ref={chartRef} className="chart-container" style={{flex:1,height:'calc(100% - 50px)'}}/>
-        </div>
-    );
+uE(()=>{
+if(!serRef.current)return;
+const sub=serRef.current.subscribeCrosshairMove||(()=>{});
+},[]);
+
+return h('div',{className:'fx fc',style:{height:'100%',gap:0}},
+h('div',{className:'fx ac g2',style:{padding:'8px 12px',background:'var(--bg1)',borderBottom:'1px solid var(--bd)',flexShrink:0}},
+h('select',{className:'sel',value:sym,onChange:e=>sS(e.target.value)},syms.map(s=>h('option',{key:s,value:s},s))),
+h('select',{className:'sel',value:tf,onChange:e=>sT(e.target.value)},tfs.map(t=>h('option',{key:t,value:t},t))),
+ld&&h('div',{className:'spin'}),
+cnt>0&&h('span',{style:{color:'var(--t3)',fontSize:10}},cnt.toLocaleString()+' velas'),
+ohlc&&h('div',{className:'fx g2 ac',style:{marginLeft:'auto',fontSize:10}},
+h('span',{style:{color:'var(--t3)'}},'O'),h('span',{style:{color:ohlc.close>=ohlc.open?'var(--green)':'var(--red)'}},ohlc.open.toFixed(2)),
+h('span',{style:{color:'var(--t3)'}},'H'),h('span',{style:{color:'var(--green)'}},ohlc.high.toFixed(2)),
+h('span',{style:{color:'var(--t3)'}},'L'),h('span',{style:{color:'var(--red)'}},ohlc.low.toFixed(2)),
+h('span',{style:{color:'var(--t3)'}},'C'),h('span',{style:{color:ohlc.close>=ohlc.open?'var(--green)':'var(--red)'}},ohlc.close.toFixed(2)),
+),
+),
+h('div',{ref:cRef,style:{flex:1,minHeight:0}}),
+);
 }
 
-// ── STRATEGIES ────────────────────────────────────────────────
-function StrategiesPage(){
-    const[strategies,setStrategies]=useState([]);const[showCreate,setShowCreate]=useState(false);
-    const[results,setResults]=useState(null);const[trades,setTrades]=useState(null);
-    const[selected,setSelected]=useState(null);const[backtesting,setBacktesting]=useState(null);
-    const{show,Toast}=useToast();
+/* ── STRATEGIES PAGE ─────────────────── */
+function StrategiesPage({goCreate,goResults}){
+const[strats,sS]=uS([]);const[expanded,sE]=uS(null);
+const[bt,sBt]=uS(null);
+const{show,T}=useToast();
 
-    const load=()=>api.get('/collections').then(d=>setStrategies(d.strategies||[]));
-    useEffect(load,[]);
+const load=()=>G('/collections').then(d=>sS(d.strategies||[]));
+uE(load,[]);
 
-    const runBacktest=async(id)=>{
-        setBacktesting(id);
-        const r=await api.post(`/strategies/${id}/backtest`,{});
-        setBacktesting(null);
-        show(r.result?.error?`Error: ${r.result.error}`:`Backtest OK — PnL: ${r.result?.metrics?.pnl_pct?.toFixed(2)}%`);
-        load();
-    };
-    const deleteStrategy=async(id)=>{await api.del(`/strategies/${id}`);show('Eliminada');load()};
-    const viewResults=async(id)=>{setSelected(id);const r=await api.get(`/strategies/${id}/results`);setResults(r.results||[])};
-    const viewTrades=async(bid)=>{const r=await api.get(`/backtest/${bid}/trades`);setTrades(r.trades||[])};
+const runBt=async(id)=>{
+sBt(id);
+const r=await P(`/strategies/${id}/backtest`,{});
+sBt(null);
+show(r.result?.error?'Error: '+r.result.error:'Backtest OK — PnL: '+(r.result?.metrics?.pnl_pct?.toFixed(2)||'?')+'%');
+load();
+};
+const del=async(id)=>{await D(`/strategies/${id}`);show('Eliminada');load()};
 
-    return(
-        <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-                <span style={{fontSize:13,color:'var(--text-2)'}}>{strategies.length} estrategias</span>
-                <div className="flex gap-2">
-                    <button className="btn" onClick={load}><Icon name="refresh" size={14}/></button>
-                    <button className="btn btn-accent" onClick={()=>setShowCreate(true)}>
-                        <span className="flex items-center gap-2"><Icon name="plus" size={14}/> Nueva</span>
-                    </button>
-                </div>
-            </div>
-            {strategies.length===0?(
-                <div className="empty-state"><Icon name="strategy" size={40}/><p>No hay estrategias. Crea una.</p></div>
-            ):(
-                <div className="card" style={{padding:0,overflow:'hidden'}}>
-                    <table className="table">
-                        <thead><tr><th>Nombre</th><th>Par</th><th>TF</th><th>Reglas</th><th>SL/TP</th><th>Estado</th><th>Acciones</th></tr></thead>
-                        <tbody>{strategies.map(s=>{
-                            const entry=typeof s.entry_rules==='string'?JSON.parse(s.entry_rules):(s.entry_rules||[]);
-                            const exit=typeof s.exit_rules==='string'?JSON.parse(s.exit_rules):(s.exit_rules||[]);
-                            return(<tr key={s.id}>
-                                <td style={{color:'var(--text-0)',fontFamily:'var(--font-sans)',fontWeight:500}}>{s.name}</td>
-                                <td>{s.symbol}</td>
-                                <td><span className="badge badge-accent">{s.timeframe}</span></td>
-                                <td style={{color:'var(--text-2)'}}>{entry.length}E / {exit.length}S</td>
-                                <td>{s.stop_loss_pct||'-'}% / {s.take_profit_pct||'-'}%</td>
-                                <td>{s.active?<span className="badge badge-green">Activa</span>:<span className="badge badge-yellow">Inactiva</span>}</td>
-                                <td><div className="flex gap-2">
-                                    <button className="btn btn-sm" onClick={()=>runBacktest(s.id)} disabled={backtesting===s.id}>
-                                        {backtesting===s.id?<div className="spinner"/>:<Icon name="play" size={12}/>}
-                                    </button>
-                                    <button className="btn btn-sm" onClick={()=>viewResults(s.id)}>Results</button>
-                                    <button className="btn btn-sm" onClick={()=>deleteStrategy(s.id)} style={{color:'var(--red)'}}><Icon name="trash" size={12}/></button>
-                                </div></td>
-                            </tr>)
-                        })}</tbody>
-                    </table>
-                </div>
-            )}
-            {showCreate&&<CreateStrategyModal onClose={()=>{setShowCreate(false);load()}}/>}
-            {results&&(
-                <div className="modal-overlay" onClick={()=>{setResults(null);setTrades(null);setSelected(null)}}>
-                    <div className="modal" onClick={e=>e.stopPropagation()} style={{minWidth:700}}>
-                        <div className="flex items-center justify-between mb-4">
-                            <h3>Resultados Backtest</h3>
-                            <button className="btn btn-sm" onClick={()=>{setResults(null);setTrades(null);setSelected(null)}}><Icon name="x" size={14}/></button>
-                        </div>
-                        {results.length===0?<p style={{color:'var(--text-2)',fontSize:13}}>Sin resultados. Ejecuta un backtest.</p>:(
-                            <>
-                            <table className="table">
-                                <thead><tr><th>Fecha</th><th>PnL%</th><th>Win Rate</th><th>DD</th><th>Trades</th><th>Sharpe</th><th>PF</th><th></th></tr></thead>
-                                <tbody>{results.map(r=>(
-                                    <tr key={r.id}>
-                                        <td>{new Date(r.created_at).toLocaleDateString()}</td>
-                                        <td className={r.pnl_pct>=0?'pnl-pos':'pnl-neg'}>{parseFloat(r.pnl_pct).toFixed(2)}%</td>
-                                        <td>{parseFloat(r.win_rate).toFixed(1)}%</td>
-                                        <td className="pnl-neg">{parseFloat(r.max_drawdown).toFixed(2)}%</td>
-                                        <td>{r.num_trades}</td>
-                                        <td>{r.sharpe_ratio?parseFloat(r.sharpe_ratio).toFixed(2):'-'}</td>
-                                        <td>{r.profit_factor?parseFloat(r.profit_factor).toFixed(2):'-'}</td>
-                                        <td><button className="btn btn-sm" onClick={()=>viewTrades(r.id)}>Trades</button></td>
-                                    </tr>
-                                ))}</tbody>
-                            </table>
-                            {trades&&(
-                                <div className="mt-3">
-                                    <div className="card-header">Trades ({trades.length})</div>
-                                    <div style={{maxHeight:300,overflowY:'auto'}}>
-                                    <table className="table">
-                                        <thead><tr><th>Entrada</th><th>Salida</th><th>Dir</th><th>P.E</th><th>P.S</th><th>PnL%</th><th>Razón</th></tr></thead>
-                                        <tbody>{trades.map((t,i)=>(
-                                            <tr key={i}>
-                                                <td>{new Date(t.entry_time).toLocaleString()}</td>
-                                                <td>{t.exit_time?new Date(t.exit_time).toLocaleString():'-'}</td>
-                                                <td><span className={`badge ${t.direction==='long'?'badge-green':'badge-red'}`}>{t.direction}</span></td>
-                                                <td>${parseFloat(t.entry_price).toFixed(2)}</td>
-                                                <td>${t.exit_price?parseFloat(t.exit_price).toFixed(2):'-'}</td>
-                                                <td className={t.pnl_pct>=0?'pnl-pos':'pnl-neg'}>{parseFloat(t.pnl_pct).toFixed(2)}%</td>
-                                                <td><span className="badge badge-accent">{t.exit_reason}</span></td>
-                                            </tr>
-                                        ))}</tbody>
-                                    </table></div>
-                                </div>
-                            )}
-                            </>
-                        )}
-                    </div>
-                </div>
-            )}
-            {Toast}
-        </div>
-    );
+return h('div',{className:'p3 fc g2'},
+h('div',{className:'fx ac jb'},
+h('span',{style:{fontSize:10,color:'var(--t3)'}},strats.length+' estrategias'),
+h('div',{className:'fx g2'},
+h('button',{className:'btn btn-sm',onClick:load},h(Icon,{name:'ref',size:12})),
+h('button',{className:'btn btn-g',onClick:goCreate},h('span',{className:'fx ac g1'},h(Icon,{name:'plus',size:12}),' Nueva')),
+)),
+strats.length===0?h('div',{className:'empty'},h(Icon,{name:'strat',size:32,color:'var(--t3)'}),h('p',null,'Sin estrategias. Crea una.')):
+strats.map(s=>{
+const open=expanded===s.id;
+const entry=typeof s.entry_rules==='string'?JSON.parse(s.entry_rules):(s.entry_rules||[]);
+const exit=typeof s.exit_rules==='string'?JSON.parse(s.exit_rules):(s.exit_rules||[]);
+return h('div',{key:s.id,className:'exp'},
+h('div',{className:'exp-h',onClick:()=>sE(open?null:s.id)},
+h('span',{className:'exp-arr'+(open?' open':'')},'\u25B6'),
+h('span',{style:{fontWeight:600,color:'var(--t0)',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},s.name),
+h('span',{className:'bg bg-c',style:{marginRight:6}},s.timeframe),
+h('span',{style:{color:'var(--t2)',fontSize:10}},s.symbol),
+h('span',{style:{marginLeft:8}},s.active?h('span',{className:'bg bg-g'},'ACTIVA'):h('span',{className:'bg bg-y'},'OFF')),
+),
+open&&h('div',{className:'exp-b p3 fc g3'},
+h('div',{className:'grid4'},
+h('div',{className:'stat'},h('div',{className:'stat-v'},entry.length),h('div',{className:'stat-l'},'Reglas entrada')),
+h('div',{className:'stat'},h('div',{className:'stat-v'},exit.length),h('div',{className:'stat-l'},'Reglas salida')),
+h('div',{className:'stat'},h('div',{className:'stat-v'},(s.stop_loss_pct||'-')+'%'),h('div',{className:'stat-l'},'Stop Loss')),
+h('div',{className:'stat'},h('div',{className:'stat-v'},(s.take_profit_pct||'-')+'%'),h('div',{className:'stat-l'},'Take Profit')),
+),
+h('div',{className:'neon-line'}),
+h('div',{className:'mb2',style:{fontSize:10,color:'var(--t3)'}},'REGLAS DE ENTRADA'),
+entry.map((r,i)=>h('div',{key:i,className:'fx g2 ac',style:{padding:'3px 0',fontSize:11,color:'var(--t1)'}},
+h('span',{className:'bg bg-c'},r.indicator),h('span',{style:{color:'var(--t3)'}},r.operator),h('span',{className:'bg bg-g'},String(r.value)))),
+entry.length===0&&h('span',{style:{fontSize:10,color:'var(--t3)'}},'—'),
+h('div',{className:'mb2',style:{fontSize:10,color:'var(--t3)',marginTop:8}},'REGLAS DE SALIDA'),
+exit.map((r,i)=>h('div',{key:i,className:'fx g2 ac',style:{padding:'3px 0',fontSize:11,color:'var(--t1)'}},
+h('span',{className:'bg bg-c'},r.indicator),h('span',{style:{color:'var(--t3)'}},r.operator),h('span',{className:'bg bg-r'},String(r.value)))),
+exit.length===0&&h('span',{style:{fontSize:10,color:'var(--t3)'}},'—'),
+h('div',{className:'neon-line'}),
+h('div',{className:'fx g2 jb ac'},
+h('div',{className:'fx g2'},
+h('button',{className:'btn btn-g btn-sm',onClick:()=>runBt(s.id),disabled:bt===s.id},
+bt===s.id?h('div',{className:'spin'}):h('span',{className:'fx ac g1'},h(Icon,{name:'play',size:11}),' Backtest')),
+h('button',{className:'btn btn-sm',onClick:()=>goResults(s.id)},'Resultados'),
+),
+h('button',{className:'btn btn-r btn-sm',onClick:()=>del(s.id)},h(Icon,{name:'trash',size:11})),
+),
+));
+}),
+T);
 }
 
-// ── CREATE STRATEGY MODAL ─────────────────────────────────────
-function CreateStrategyModal({onClose}){
-    const[symbols,setSymbols]=useState([]);const[timeframes,setTimeframes]=useState([]);
-    const[operators,setOperators]=useState([]);const[indicators,setIndicators]=useState([]);
-    const[form,setForm]=useState({name:'',symbol:'',timeframe:'',stop_loss_pct:'',take_profit_pct:'',position_size:100});
-    const[entryRules,setEntryRules]=useState([{indicator:'',operator:'',value:''}]);
-    const[exitRules,setExitRules]=useState([{indicator:'',operator:'',value:''}]);
-    const[saving,setSaving]=useState(false);
+/* ── CREATE STRATEGY PAGE ────────────── */
+function CreatePage({goBack}){
+const[syms,setSy]=uS([]);const[tfs,setTf]=uS([]);
+const[ops,sOps]=uS([]);const[inds,sInds]=uS([]);
+const[f,sF]=uS({name:'',symbol:'',timeframe:'',sl:'',tp:'',size:100});
+const[eR,sER]=uS([{indicator:'',operator:'',value:''}]);
+const[xR,sXR]=uS([{indicator:'',operator:'',value:''}]);
+const[saving,sS]=uS(false);
 
-    useEffect(()=>{
-        api.get('/symbols').then(d=>{setSymbols(d.symbols||[]);if(d.symbols?.length)setForm(f=>({...f,symbol:d.symbols[0]}))});
-        api.get('/timeframes').then(d=>{setTimeframes(d.timeframes||[]);if(d.timeframes?.length)setForm(f=>({...f,timeframe:d.timeframes[0]}))});
-        api.get('/strategies/operators').then(d=>{setOperators(d.operators||[]);setIndicators(d.indicators||[])});
-    },[]);
+uE(()=>{
+G('/symbols').then(d=>{setSy(d.symbols||[]);if(d.symbols?.length)sF(f=>({...f,symbol:d.symbols[0]}))});
+G('/timeframes').then(d=>{setTf(d.timeframes||[]);if(d.timeframes?.length)sF(f=>({...f,timeframe:d.timeframes[0]}))});
+G('/strategies/operators').then(d=>{sOps(d.operators||[]);sInds(d.indicators||[])});
+},[]);
 
-    const save=async()=>{
-        if(!form.name)return;setSaving(true);
-        await api.post('/strategies',{
-            ...form,stop_loss_pct:form.stop_loss_pct?parseFloat(form.stop_loss_pct):null,
-            take_profit_pct:form.take_profit_pct?parseFloat(form.take_profit_pct):null,
-            position_size:parseFloat(form.position_size),
-            entry_rules:entryRules.filter(r=>r.indicator&&r.operator),
-            exit_rules:exitRules.filter(r=>r.indicator&&r.operator),
-        });
-        setSaving(false);onClose();
-    };
+const save=async()=>{
+if(!f.name)return;sS(true);
+await P('/strategies',{...f,stop_loss_pct:f.sl?+f.sl:null,take_profit_pct:f.tp?+f.tp:null,
+position_size:+f.size,entry_rules:eR.filter(r=>r.indicator&&r.operator),exit_rules:xR.filter(r=>r.indicator&&r.operator)});
+sS(false);goBack();
+};
 
-    const RuleEditor=({rules,setRules,label})=>(
-        <div className="mb-3">
-            <div className="label">{label}</div>
-            {rules.map((r,i)=>(
-                <div key={i} className="rule-row">
-                    <select className="sel" value={r.indicator} onChange={e=>{const n=[...rules];n[i].indicator=e.target.value;setRules(n)}}>
-                        <option value="">Indicador...</option>
-                        {indicators.map(ind=><option key={ind.id} value={ind.id}>{ind.label}</option>)}
-                    </select>
-                    <select className="sel" value={r.operator} onChange={e=>{const n=[...rules];n[i].operator=e.target.value;setRules(n)}}>
-                        <option value="">Operador...</option>
-                        {operators.map(op=><option key={op.id} value={op.id}>{op.label}</option>)}
-                    </select>
-                    <input className="input" placeholder="Valor" value={r.value} onChange={e=>{const n=[...rules];n[i].value=e.target.value;setRules(n)}} style={{maxWidth:120}}/>
-                    {rules.length>1&&<button className="btn btn-sm" onClick={()=>setRules(rules.filter((_,j)=>j!==i))} style={{color:'var(--red)'}}><Icon name="x" size={12}/></button>}
-                </div>
-            ))}
-            <button className="btn btn-sm mt-3" onClick={()=>setRules([...rules,{indicator:'',operator:'',value:''}])}>
-                <span className="flex items-center gap-2"><Icon name="plus" size={12}/> Regla</span>
-            </button>
-        </div>
-    );
+const RuleEd=(rules,setR,label)=>h('div',{className:'create-sec'},
+h('div',{className:'create-sec-t'},label),
+rules.map((r,i)=>h('div',{key:i,className:'rr'},
+h('select',{className:'sel',value:r.indicator,onChange:e=>{const n=[...rules];n[i]={...n[i],indicator:e.target.value};setR(n)}},
+h('option',{value:''},'Indicador...'),inds.map(x=>h('option',{key:x.id,value:x.id},x.label))),
+h('select',{className:'sel',value:r.operator,onChange:e=>{const n=[...rules];n[i]={...n[i],operator:e.target.value};setR(n)}},
+h('option',{value:''},'Operador...'),ops.map(x=>h('option',{key:x.id,value:x.id},x.label))),
+h('input',{className:'inp',placeholder:'Valor',value:r.value,onChange:e=>{const n=[...rules];n[i]={...n[i],value:e.target.value};setR(n)},style:{maxWidth:100}}),
+rules.length>1&&h('button',{className:'btn btn-r btn-sm',onClick:()=>setR(rules.filter((_,j)=>j!==i))},h(Icon,{name:'x',size:10})),
+)),
+h('button',{className:'btn btn-sm',style:{marginTop:6},onClick:()=>setR([...rules,{indicator:'',operator:'',value:''}])},
+h('span',{className:'fx ac g1'},h(Icon,{name:'plus',size:10}),' Regla')),
+);
 
-    return(
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal" onClick={e=>e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-4">
-                    <h3>Nueva Estrategia</h3>
-                    <button className="btn btn-sm" onClick={onClose}><Icon name="x" size={14}/></button>
-                </div>
-                <div className="grid-2 mb-3">
-                    <div><div className="label">Nombre</div><input className="input" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Mi estrategia"/></div>
-                    <div><div className="label">Tamaño posición</div><input className="input" type="number" value={form.position_size} onChange={e=>setForm({...form,position_size:e.target.value})}/></div>
-                </div>
-                <div className="grid-3 mb-3">
-                    <div><div className="label">Par</div><select className="sel" style={{width:'100%'}} value={form.symbol} onChange={e=>setForm({...form,symbol:e.target.value})}>{symbols.map(s=><option key={s}>{s}</option>)}</select></div>
-                    <div><div className="label">Timeframe</div><select className="sel" style={{width:'100%'}} value={form.timeframe} onChange={e=>setForm({...form,timeframe:e.target.value})}>{timeframes.map(t=><option key={t}>{t}</option>)}</select></div>
-                    <div className="grid-2">
-                        <div><div className="label">SL %</div><input className="input" type="number" value={form.stop_loss_pct} onChange={e=>setForm({...form,stop_loss_pct:e.target.value})} placeholder="5"/></div>
-                        <div><div className="label">TP %</div><input className="input" type="number" value={form.take_profit_pct} onChange={e=>setForm({...form,take_profit_pct:e.target.value})} placeholder="10"/></div>
-                    </div>
-                </div>
-                <RuleEditor rules={entryRules} setRules={setEntryRules} label="REGLAS DE ENTRADA"/>
-                <RuleEditor rules={exitRules} setRules={setExitRules} label="REGLAS DE SALIDA"/>
-                <div className="flex justify-between mt-3">
-                    <button className="btn" onClick={onClose}>Cancelar</button>
-                    <button className="btn btn-accent" onClick={save} disabled={saving}>{saving?'Guardando...':'Crear Estrategia'}</button>
-                </div>
-            </div>
-        </div>
-    );
+return h('div',{className:'cnt'},h('div',{className:'create-page'},
+h('div',{className:'fx ac g2 mb3'},
+h('button',{className:'btn btn-sm',onClick:goBack},h(Icon,{name:'back',size:12})),
+h('h2',{style:{margin:0}},'Nueva Estrategia'),
+),
+h('div',{className:'card p3 fc g3'},
+h('div',{className:'grid2'},
+h('div',null,h('div',{className:'lbl'},'Nombre'),h('input',{className:'inp',value:f.name,onChange:e=>sF({...f,name:e.target.value}),placeholder:'Mi estrategia'})),
+h('div',null,h('div',{className:'lbl'},'Tamaño posición'),h('input',{className:'inp',type:'number',value:f.size,onChange:e=>sF({...f,size:e.target.value})})),
+),
+h('div',{className:'grid4'},
+h('div',null,h('div',{className:'lbl'},'Par'),h('select',{className:'sel',style:{width:'100%'},value:f.symbol,onChange:e=>sF({...f,symbol:e.target.value})},syms.map(s=>h('option',{key:s},s)))),
+h('div',null,h('div',{className:'lbl'},'Timeframe'),h('select',{className:'sel',style:{width:'100%'},value:f.timeframe,onChange:e=>sF({...f,timeframe:e.target.value})},tfs.map(t=>h('option',{key:t},t)))),
+h('div',null,h('div',{className:'lbl'},'SL %'),h('input',{className:'inp',type:'number',value:f.sl,onChange:e=>sF({...f,sl:e.target.value}),placeholder:'5'})),
+h('div',null,h('div',{className:'lbl'},'TP %'),h('input',{className:'inp',type:'number',value:f.tp,onChange:e=>sF({...f,tp:e.target.value}),placeholder:'10'})),
+),
+h('div',{className:'neon-line'}),
+RuleEd(eR,sER,'Reglas de Entrada'),
+RuleEd(xR,sXR,'Reglas de Salida'),
+h('div',{className:'neon-line'}),
+h('div',{className:'fx jb ac'},
+h('button',{className:'btn',onClick:goBack},'Cancelar'),
+h('button',{className:'btn btn-g',onClick:save,disabled:saving},saving?'Guardando...':'Crear Estrategia'),
+),
+),
+));
 }
 
-// ── BOTS ──────────────────────────────────────────────────────
+/* ── RESULTS PAGE ────────────────────── */
+function ResultsPage({stratId,goBack}){
+const[res,sR]=uS([]);const[trades,sT]=uS(null);const[sel,sS]=uS(null);
+const[ld,sL]=uS(true);
+
+uE(()=>{G(`/strategies/${stratId}/results`).then(d=>{sR(d.results||[]);sL(false)})},[stratId]);
+const viewT=async(bid)=>{sS(bid);const r=await G(`/backtest/${bid}/trades`);sT(r.trades||[])};
+
+return h('div',{className:'p3 fc g3'},
+h('div',{className:'fx ac g2'},
+h('button',{className:'btn btn-sm',onClick:goBack},h(Icon,{name:'back',size:12})),
+h('span',{style:{fontWeight:700,fontSize:12}},'Resultados — Estrategia #'+stratId),
+),
+ld?h('div',{className:'fx ac jc g2 p4'},h('div',{className:'spin'}),'Cargando...'):
+res.length===0?h('div',{className:'empty'},h('p',null,'Sin resultados. Ejecuta un backtest.')):
+h('div',{className:'card',style:{padding:0}},
+h('div',{style:{overflowX:'auto'}},
+h('table',{className:'tbl'},
+h('thead',null,h('tr',null,['Fecha','PnL%','Win Rate','Drawdown','Trades','Sharpe','PF',''].map(x=>h('th',{key:x},x)))),
+h('tbody',null,res.map(r=>h('tr',{key:r.id},
+h('td',null,new Date(r.created_at).toLocaleDateString()),
+h('td',{className:r.pnl_pct>=0?'pos':'neg'},(+r.pnl_pct).toFixed(2)+'%'),
+h('td',null,(+r.win_rate).toFixed(1)+'%'),
+h('td',{className:'neg'},(+r.max_drawdown).toFixed(2)+'%'),
+h('td',null,r.num_trades),
+h('td',null,r.sharpe_ratio?(+r.sharpe_ratio).toFixed(2):'-'),
+h('td',null,r.profit_factor?(+r.profit_factor).toFixed(2):'-'),
+h('td',null,h('button',{className:'btn btn-sm'+(sel===r.id?' btn-g':''),onClick:()=>viewT(r.id)},'Trades')),
+))),
+)),
+),
+trades&&h('div',{className:'card mt3',style:{padding:0}},
+h('div',{className:'card-h'},h('span',null,'Trades individuales ('+trades.length+')'),h('button',{className:'btn btn-sm',onClick:()=>{sT(null);sS(null)}},h(Icon,{name:'x',size:10}))),
+h('div',{style:{maxHeight:300,overflowY:'auto'}},
+h('table',{className:'tbl'},
+h('thead',null,h('tr',null,['Entrada','Salida','Dir','P.Entrada','P.Salida','PnL%','Razón'].map(x=>h('th',{key:x},x)))),
+h('tbody',null,trades.map((t,i)=>h('tr',{key:i},
+h('td',null,new Date(t.entry_time).toLocaleString()),
+h('td',null,t.exit_time?new Date(t.exit_time).toLocaleString():'-'),
+h('td',null,h('span',{className:'bg '+(t.direction==='long'?'bg-g':'bg-r')},t.direction)),
+h('td',null,'$'+(+t.entry_price).toFixed(2)),
+h('td',null,t.exit_price?'$'+(+t.exit_price).toFixed(2):'-'),
+h('td',{className:t.pnl_pct>=0?'pos':'neg'},(+t.pnl_pct).toFixed(2)+'%'),
+h('td',null,h('span',{className:'bg bg-c'},t.exit_reason)),
+))),
+)),
+),
+);
+}
+
+/* ── BOTS PAGE ───────────────────────── */
 function BotsPage(){
-    const[bots,setBots]=useState([]);const[selectedBot,setSelectedBot]=useState(null);
-    const[orders,setOrders]=useState([]);const[stats,setStats]=useState(null);const[loading,setLoading]=useState(true);
-    useEffect(()=>{api.get('/bots').then(d=>{setBots(d.bots||[]);setLoading(false)})},[]);
-    const viewBot=async(name)=>{
-        setSelectedBot(name);
-        const[o,s]=await Promise.all([api.get(`/bots/${name}/orders`),api.get(`/bots/${name}/stats`)]);
-        setOrders(o.orders||[]);setStats(s.stats||{});
-    };
-    if(loading)return<div className="loading"><div className="spinner"/>Cargando...</div>;
-    return(
-        <div className="flex flex-col gap-4">
-            {bots.length===0?(
-                <div className="empty-state"><Icon name="bot" size={40}/><p>No hay bots. Fase 7 del proyecto.</p></div>
-            ):(
-                <>
-                <div className="grid-3">{bots.map(b=>(
-                    <div key={b.name} className="card" style={{cursor:'pointer'}} onClick={()=>viewBot(b.name)}>
-                        <div className="flex items-center justify-between mb-3">
-                            <span style={{fontWeight:600,fontSize:14}}>{b.name}</span>
-                            <span className={`badge ${b.active?'badge-green':'badge-red'}`}>{b.active?'ON':'OFF'}</span>
-                        </div>
-                        <div style={{fontSize:12,color:'var(--text-2)'}}>{b.symbol} · {b.strategy_id?`Strategy #${b.strategy_id}`:'Sin estrategia'}</div>
-                    </div>
-                ))}</div>
-                {selectedBot&&stats&&(
-                    <div className="card">
-                        <div className="card-header">{selectedBot} — Stats</div>
-                        <div className="grid-4 mb-4">
-                            <div><div className="stat-value">{stats.total_orders||0}</div><div className="stat-label">Órdenes</div></div>
-                            <div><div className="stat-value pnl-pos">{stats.winning||0}</div><div className="stat-label">Ganadoras</div></div>
-                            <div><div className="stat-value pnl-neg">{stats.losing||0}</div><div className="stat-label">Perdedoras</div></div>
-                            <div><div className={`stat-value ${(stats.total_pnl||0)>=0?'pnl-pos':'pnl-neg'}`}>${parseFloat(stats.total_pnl||0).toFixed(2)}</div><div className="stat-label">PnL Total</div></div>
-                        </div>
-                        {orders.length>0&&(
-                            <table className="table">
-                                <thead><tr><th>Fecha</th><th>Símbolo</th><th>Lado</th><th>Precio</th><th>Cantidad</th><th>PnL</th></tr></thead>
-                                <tbody>{orders.slice(0,20).map((o,i)=>(
-                                    <tr key={i}>
-                                        <td>{new Date(o.created_at).toLocaleString()}</td>
-                                        <td>{o.symbol}</td>
-                                        <td><span className={`badge ${o.side==='buy'?'badge-green':'badge-red'}`}>{o.side}</span></td>
-                                        <td>${parseFloat(o.price||0).toFixed(2)}</td>
-                                        <td>{o.amount}</td>
-                                        <td className={parseFloat(o.pnl||0)>=0?'pnl-pos':'pnl-neg'}>${parseFloat(o.pnl||0).toFixed(2)}</td>
-                                    </tr>
-                                ))}</tbody>
-                            </table>
-                        )}
-                    </div>
-                )}
-                </>
-            )}
-        </div>
-    );
+const[bots,sB]=uS([]);const[sel,sS]=uS(null);
+const[ords,sO]=uS([]);const[st,sSt]=uS(null);const[ld,sL]=uS(true);
+uE(()=>{G('/bots').then(d=>{sB(d.bots||[]);sL(false)})},[]);
+const view=async n=>{sS(n);const[o,s]=await Promise.all([G(`/bots/${n}/orders`),G(`/bots/${n}/stats`)]);sO(o.orders||[]);sSt(s.stats||{})};
+if(ld)return h('div',{className:'fx ac jc g2 p4'},h('div',{className:'spin'}),'Cargando...');
+return h('div',{className:'p3 fc g3'},
+bots.length===0?h('div',{className:'empty'},h(Icon,{name:'bot',size:32,color:'var(--t3)'}),h('p',null,'Sin bots. Fase 7.')):
+h(React.Fragment,null,
+h('div',{className:'grid3'},bots.map(b=>h('div',{key:b.name,className:'card',style:{cursor:'pointer'},onClick:()=>view(b.name)},
+h('div',{className:'fx ac jb',style:{padding:'10px 12px'}},
+h('span',{style:{fontWeight:600,fontSize:12}},b.name),
+h('span',{className:'bg '+(b.active?'bg-g':'bg-r')},b.active?'ON':'OFF'),
+),
+h('div',{style:{padding:'0 12px 10px',fontSize:10,color:'var(--t3)'}},b.symbol||'—'),
+))),
+sel&&st&&h('div',{className:'card'},
+h('div',{className:'card-h'},sel+' — Stats'),
+h('div',{className:'grid4 p2'},
+h('div',{className:'stat'},h('div',{className:'stat-v'},st.total_orders||0),h('div',{className:'stat-l'},'Órdenes')),
+h('div',{className:'stat'},h('div',{className:'stat-v pos'},st.winning||0),h('div',{className:'stat-l'},'Ganadoras')),
+h('div',{className:'stat'},h('div',{className:'stat-v neg'},st.losing||0),h('div',{className:'stat-l'},'Perdedoras')),
+h('div',{className:'stat'},h('div',{className:'stat-v '+(+(st.total_pnl||0)>=0?'pos':'neg')},'$'+(+(st.total_pnl||0)).toFixed(2)),h('div',{className:'stat-l'},'PnL Total')),
+),
+ords.length>0&&h('div',{style:{padding:0,borderTop:'1px solid var(--bd)'}},h('table',{className:'tbl'},
+h('thead',null,h('tr',null,['Fecha','Símbolo','Lado','Precio','Cant','PnL'].map(x=>h('th',{key:x},x)))),
+h('tbody',null,ords.slice(0,20).map((o,i)=>h('tr',{key:i},
+h('td',null,new Date(o.created_at).toLocaleString()),h('td',null,o.symbol),
+h('td',null,h('span',{className:'bg '+(o.side==='buy'?'bg-g':'bg-r')},o.side)),
+h('td',null,'$'+(+(o.price||0)).toFixed(2)),h('td',null,o.amount),
+h('td',{className:+(o.pnl||0)>=0?'pos':'neg'},'$'+(+(o.pnl||0)).toFixed(2)),
+))),
+)),
+),
+),
+);
 }
 
-// ── HEALTH ────────────────────────────────────────────────────
+/* ── HEALTH PAGE ─────────────────────── */
 function HealthPage(){
-    const[health,setHealth]=useState(null);const[loading,setLoading]=useState(true);
-    const load=()=>{setLoading(true);api.get('/health').then(d=>{setHealth(d);setLoading(false)})};
-    useEffect(load,[]);
-    return(
-        <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-                <span style={{fontSize:13,color:'var(--text-2)'}}>Estado del sistema</span>
-                <button className="btn" onClick={load}><Icon name="refresh" size={14}/></button>
-            </div>
-            {loading?<div className="loading"><div className="spinner"/>Consultando...</div>:health&&(
-                <>
-                <div className="grid-3">
-                    <div className="card"><div className="card-header">Estado API</div>
-                        <div className="stat-value" style={{color:health.status==='ok'?'var(--green)':'var(--red)'}}>{health.status==='ok'?'● Online':'● Error'}</div>
-                    </div>
-                    <div className="card"><div className="card-header">Total Velas</div>
-                        <div className="stat-value">{(health.total_candles||0).toLocaleString()}</div>
-                    </div>
-                    <div className="card"><div className="card-header">Base de Datos</div>
-                        <div className="stat-value" style={{color:'var(--green)'}}>● Conectada</div>
-                    </div>
-                </div>
-                <div className="card">
-                    <div className="card-header">Servicios Docker</div>
-                    <div className="grid-4">
-                        {['db','fetcher','indicators','backend','nginx'].map(s=>(
-                            <div key={s} className="flex items-center gap-2" style={{padding:'8px 0'}}>
-                                <span style={{width:8,height:8,borderRadius:'50%',background:'var(--green)',display:'inline-block'}}/>
-                                <span style={{fontFamily:'var(--font-mono)',fontSize:12}}>{s}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                {health.detail&&(
-                    <div className="card"><div className="card-header">Error</div>
-                        <pre style={{fontFamily:'var(--font-mono)',fontSize:12,color:'var(--red)',whiteSpace:'pre-wrap'}}>{health.detail}</pre>
-                    </div>
-                )}
-                </>
-            )}
-        </div>
-    );
+const[hp,sH]=uS(null);const[ld,sL]=uS(true);
+const load=()=>{sL(true);G('/health').then(d=>{sH(d);sL(false)})};
+uE(load,[]);
+return h('div',{className:'p3 fc g3'},
+h('div',{className:'fx ac jb'},
+h('span',{style:{fontSize:10,color:'var(--t3)'}},'ESTADO DEL SISTEMA'),
+h('button',{className:'btn btn-sm',onClick:load},h(Icon,{name:'ref',size:12})),
+),
+ld?h('div',{className:'fx ac jc g2 p4'},h('div',{className:'spin'}),'Consultando...'):hp&&h(React.Fragment,null,
+h('div',{className:'grid3'},
+h('div',{className:'card stat'},h('div',{className:'stat-v',style:{color:hp.status==='ok'?'var(--green)':'var(--red)'}},hp.status==='ok'?'● ONLINE':'● ERROR'),h('div',{className:'stat-l'},'Estado API')),
+h('div',{className:'card stat'},h('div',{className:'stat-v'},(hp.total_candles||0).toLocaleString()),h('div',{className:'stat-l'},'Total Velas')),
+h('div',{className:'card stat'},h('div',{className:'stat-v',style:{color:'var(--green)'}},'● OK'),h('div',{className:'stat-l'},'Base de Datos')),
+),
+h('div',{className:'card'},
+h('div',{className:'card-h'},'Servicios Docker'),
+h('div',{className:'grid4 p2'},['db','fetcher','indicators','backend','nginx'].map(s=>
+h('div',{key:s,className:'fx ac g1',style:{padding:'6px 8px'}},
+h('span',{style:{width:6,height:6,borderRadius:'50%',background:'var(--green)',display:'inline-block',boxShadow:'0 0 6px var(--green)'}}),
+h('span',{style:{fontSize:11}},s),
+))),
+),
+hp.detail&&h('div',{className:'card'},
+h('div',{className:'card-h',style:{color:'var(--red)'}},'Error'),
+h('pre',{style:{padding:12,fontSize:10,color:'var(--red)',whiteSpace:'pre-wrap',wordBreak:'break-all'}},hp.detail),
+),
+),
+);
 }
 
-// ── APP ───────────────────────────────────────────────────────
+/* ── APP ROOT ────────────────────────── */
 const PAGES=[
-    {id:'chart',icon:'chart',label:'Gráfica',component:ChartPage},
-    {id:'strategies',icon:'strategy',label:'Estrategias',component:StrategiesPage},
-    {id:'bots',icon:'bot',label:'Bots',component:BotsPage},
-    {id:'health',icon:'health',label:'Health',component:HealthPage},
+{id:'strat',icon:'strat',label:'Estrategias'},
+{id:'chart',icon:'chart',label:'Gráfica'},
+{id:'health',icon:'health',label:'Health'},
+{id:'bots',icon:'bot',label:'Bots'},
 ];
 
 function App(){
-    const[page,setPage]=useState('chart');
-    const current=PAGES.find(p=>p.id===page);const PageComponent=current.component;
-    return(
-        <div className="app">
-            <div className="sidebar">
-                <div className="sidebar-logo">TS</div>
-                {PAGES.map(p=>(
-                    <button key={p.id} className={`sidebar-btn ${page===p.id?'active':''}`} onClick={()=>setPage(p.id)} title={p.label}><Icon name={p.icon}/></button>
-                ))}
-            </div>
-            <div className="main">
-                <div className="topbar"><div className="topbar-title">{current.label}</div></div>
-                <div className="content"><PageComponent/></div>
-            </div>
-        </div>
-    );
+const[pg,sPg]=uS('strat');
+const[sub,sSub]=uS(null);const[subArg,sSA]=uS(null);
+
+const goCreate=()=>{sSub('create')};
+const goResults=(id)=>{sSub('results');sSA(id)};
+const goBack=()=>{sSub(null);sSA(null)};
+
+let content;
+if(sub==='create')content=h(CreatePage,{goBack});
+else if(sub==='results')content=h(ResultsPage,{stratId:subArg,goBack});
+else if(pg==='chart')content=h(ChartPage);
+else if(pg==='strat')content=h(StrategiesPage,{goCreate,goResults});
+else if(pg==='bots')content=h(BotsPage);
+else if(pg==='health')content=h(HealthPage);
+
+const current=PAGES.find(p=>p.id===pg);
+const title=sub==='create'?'Nueva Estrategia':sub==='results'?'Resultados':current?.label||'';
+
+return h('div',{className:'app'},
+h('div',{className:'sb'},
+h('div',{className:'sb-logo'},'TS'),
+PAGES.map(p=>h('button',{key:p.id,className:'sb-btn'+(pg===p.id&&!sub?' on':''),onClick:()=>{sPg(p.id);sSub(null);sSA(null)},title:p.label},h(Icon,{name:p.icon}))),
+h('div',{className:'sb-sep'}),
+),
+h('div',{className:'mn'},
+h('div',{className:'top'},h('div',{className:'top-t'},title)),
+pg==='chart'&&!sub?content:h('div',{className:'cnt'},content),
+),
+);
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));
 </script>
 </body>
 </html>
