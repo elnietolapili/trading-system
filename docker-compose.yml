@@ -34,6 +34,8 @@ services:
     env_file: .env
     ports:
       - "127.0.0.1:8000:8000"
+    volumes:
+      - ./indicators/lib:/app/lib
 
   nginx:
     image: nginx:alpine
